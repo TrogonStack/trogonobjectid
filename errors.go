@@ -16,6 +16,8 @@ var (
 	ErrInvalidInteger = errors.New("invalid integer")
 	// ErrInvalidDefinition means the marker type's Definition is not usable.
 	ErrInvalidDefinition = errors.New("trogonobjectid: invalid definition")
+	// ErrNotMember means the ID passed to NewUnion is not one of the union's member types.
+	ErrNotMember = errors.New("not a union member")
 	// ErrNoGenerator means Generate was called on a type without a Generate function.
 	ErrNoGenerator = errors.New("trogonobjectid: no generator")
 )

@@ -44,6 +44,31 @@ id.Storage() // "0199e3a1-..."      (StorageFormat)
 slog.Info("charged", "invoice_id", id) // invoice_id=inv_0199e3a1-...
 ```
 
+### Unions
+
+A `Union` holds one ID of any of several types and picks the type by prefix:
+
+```go
+type principalUnion struct{}
+
+func (principalUnion) Members() []trogonobjectid.MemberType {
+	return []trogonobjectid.MemberType{
+		trogonobjectid.MemberOf[userType](),
+		trogonobjectid.MemberOf[systemType](),
+	}
+}
+
+type PrincipalID = trogonobjectid.Union[principalUnion]
+
+p, err := trogonobjectid.ParseUnion[principalUnion]("system_cron")
+switch m := p.Member().(type) {
+case SystemID:
+	// m.Bare() == "cron"
+}
+```
+
+A union always encodes the full form, in JSON and in storage too, because the prefix is the only thing that tells the member types apart. When prefixes overlap, such as `acme_` and `acme_admin_`, the longest prefix wins.
+
 ## Options
 
 | Field | Default | Effect |

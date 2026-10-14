@@ -38,6 +38,14 @@
 // when the database and the wire carry bare UUIDs. Decoding accepts only the form that the
 // matching encoder emits, so every encoding round trips.
 //
+// # Unions
+//
+// A Union holds one ID of any of several member types and picks the member type by prefix.
+// It differs from the Elixir UnionObjectId in two ways. When prefixes overlap, such as
+// "acme_" and "acme_admin_", the longest prefix wins. JSON always uses the full form,
+// even for a member that drops the prefix, because without the prefix the union cannot
+// tell its member types apart when it decodes.
+//
 // # Zero value
 //
 // The zero ID means "absent". It encodes as SQL NULL and JSON null, String returns "",
