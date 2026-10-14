@@ -1,3 +1,71 @@
 # TrogonObjectID
 
-Type-safe, prefixed object IDs for Go, such as `user_abc-123`. This is the Go counterpart of the Elixir package [`trogon_object_id`](https://github.com/straw-hat-team/beam-monorepo/tree/main/apps/trogon_object_id).
+**TrogonObjectID gives Go services type-safe, prefixed object IDs such as `user_abc-123`.** It is the Go counterpart of the Elixir package [`trogon_object_id`](https://github.com/straw-hat-team/beam-monorepo/tree/main/apps/trogon_object_id) and uses the same string forms.
+
+**Each ID type is a distinct Go type, so the compiler rejects a `UserID` where an `OrderID` is expected.** A raw string ID loses its meaning when it leaves the function that made it.
+
+**The prefix stays in logs even when the database and the wire carry bare UUIDs.** `String`, `fmt` and `log/slog` always emit the full form. JSON and `database/sql` follow the format that you configure.
+
+## Getting Started
+
+```bash
+go get github.com/TrogonStack/trogonobjectid
+```
+
+### Define an ID type
+
+```go
+type invoiceType struct{}
+
+func (invoiceType) Definition() trogonobjectid.Definition {
+	return trogonobjectid.Definition{
+		ObjectType:    "inv",
+		StorageFormat: trogonobjectid.FormatDropPrefix,
+		JSONFormat:    trogonobjectid.FormatDropPrefix,
+		Validate:      trogonobjectid.ValidateUUID,
+		Generate:      trogonobjectid.GenerateUUIDv7,
+	}
+}
+
+type InvoiceID = trogonobjectid.ID[invoiceType]
+```
+
+### Use it
+
+```go
+id, err := trogonobjectid.Generate[invoiceType]()
+id, err = trogonobjectid.New[invoiceType]("0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f")
+id, err = trogonobjectid.Parse[invoiceType]("inv_0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f")
+
+id.String()  // "inv_0199e3a1-..."  (fmt and slog use this form too)
+id.Bare()    // "0199e3a1-..."
+id.Storage() // "0199e3a1-..."      (StorageFormat)
+
+slog.Info("charged", "invoice_id", id) // invoice_id=inv_0199e3a1-...
+```
+
+## Options
+
+| Field | Default | Effect |
+| --- | --- | --- |
+| `ObjectType` | required | Prefix without the separator, for example `"user"` |
+| `Separator` | `"_"` | Goes between the object type and the bare value |
+| `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
+| `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
+| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
+| `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
+
+## Emitted forms
+
+| Method | Emits | Controlled by |
+| --- | --- | --- |
+| `String`, `fmt` verbs | Full | Always full |
+| `LogValue` (`log/slog`) | Full | Always full |
+| `MarshalText`, `UnmarshalText` | Full | Always full |
+| `MarshalJSON`, `UnmarshalJSON` | Full or bare | `JSONFormat` |
+| `Storage`, `FromStorage` | Full or bare | `StorageFormat` |
+| `Value`, `Scan` (`database/sql`) | Full or bare | `StorageFormat` |
+
+`LogValue` exists because `slog.JSONHandler` otherwise calls `MarshalJSON`, which logs the bare value when `JSONFormat` is `FormatDropPrefix`. `MarshalText` always uses the full form because JSON map keys and flag values must parse back without other context.
+
+Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
