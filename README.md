@@ -69,6 +69,24 @@ case SystemID:
 
 A union always encodes the full form, in JSON and in storage too, because the prefix is the only thing that tells the member types apart. When prefixes overlap, such as `acme_` and `acme_admin_`, the longest prefix wins.
 
+### Read the prefix from a proto annotation
+
+Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix:
+
+```go
+var ticketDefinition = func() trogonobjectid.Definition {
+	def := objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET)
+	def.Validate = trogonobjectid.ValidateUUID
+	return def
+}()
+
+type ticketType struct{}
+
+func (ticketType) Definition() trogonobjectid.Definition { return ticketDefinition }
+```
+
+Keep the result in a package-level variable, because `Definition` methods run on every call.
+
 ## Options
 
 | Field | Default | Effect |
