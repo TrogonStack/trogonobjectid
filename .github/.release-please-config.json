@@ -18,7 +18,8 @@
   ],
   "packages": {
     ".": {
-      "component": "trogonobjectid"
+      "component": "trogonobjectid",
+      "initial-version": "0.1.0"
     }
   },
   "plugins": [
