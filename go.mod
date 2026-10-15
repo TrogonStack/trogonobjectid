@@ -6,7 +6,7 @@ require (
 	github.com/TrogonStack/trogonproto v0.1.1
 	github.com/google/uuid v1.6.0
 	github.com/stretchr/testify v1.12.1
-	google.golang.org/protobuf v1.36.11
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
