@@ -71,13 +71,13 @@ func TestDefinition(t *testing.T) {
 	enum := objectTypeEnum(t)
 
 	t.Run("reads the object type and uses the default separator", func(t *testing.T) {
-		def, err := objectidproto.Definition(enum.New(valueTicket))
+		def, err := objectidproto.Definition(enum.New(valueTicket), trogonobjectid.Definition{})
 		require.NoError(t, err)
 		assert.Equal(t, trogonobjectid.Definition{ObjectType: "tkt", Separator: "_"}, def)
 	})
 
 	t.Run("reads the separator", func(t *testing.T) {
-		def, err := objectidproto.Definition(enum.New(valueOrder))
+		def, err := objectidproto.Definition(enum.New(valueOrder), trogonobjectid.Definition{})
 		require.NoError(t, err)
 		assert.Equal(t, trogonobjectid.Definition{ObjectType: "order", Separator: "#"}, def)
 	})
@@ -92,13 +92,13 @@ func TestDefinition(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := objectidproto.Definition(enum.New(tt.number))
+			_, err := objectidproto.Definition(enum.New(tt.number), trogonobjectid.Definition{})
 			require.ErrorIs(t, err, trogonobjectid.ErrInvalidDefinition)
 		})
 	}
 
 	t.Run("MustDefinition panics on error", func(t *testing.T) {
-		assert.Panics(t, func() { objectidproto.MustDefinition(enum.New(valueUnspecified)) })
+		assert.Panics(t, func() { objectidproto.MustDefinition(enum.New(valueUnspecified), trogonobjectid.Definition{}) })
 	})
 }
 
@@ -107,7 +107,7 @@ var ticketEnum protoreflect.EnumType
 type ticketType struct{}
 
 func (ticketType) Definition() trogonobjectid.Definition {
-	def := objectidproto.MustDefinition(ticketEnum.New(valueTicket))
+	def := objectidproto.MustDefinition(ticketEnum.New(valueTicket), trogonobjectid.Definition{})
 	def.Validate = trogonobjectid.ValidateInteger
 	return def
 }
@@ -121,4 +121,22 @@ func TestDefinitionWithID(t *testing.T) {
 
 	_, err = trogonobjectid.Parse[ticketType]("tkt_abc")
 	require.ErrorIs(t, err, trogonobjectid.ErrInvalidInteger)
+}
+
+func TestDefinitionBase(t *testing.T) {
+	enum := objectTypeEnum(t)
+	base := trogonobjectid.Definition{
+		ObjectType:    "ignored",
+		Separator:     "ignored",
+		StorageFormat: trogonobjectid.FormatDropPrefix,
+		JSONFormat:    trogonobjectid.FormatDropPrefix,
+	}
+
+	def, err := objectidproto.Definition(enum.New(valueOrder), base)
+	require.NoError(t, err)
+
+	want := base
+	want.ObjectType = "order"
+	want.Separator = "#"
+	assert.Equal(t, want, def)
 }

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
+	"sync"
 )
 
 // DefaultSeparator is the separator used when Definition.Separator is empty.
@@ -38,7 +40,8 @@ type Definition struct {
 }
 
 // Definer is implemented by the marker type that names an object ID type.
-// Implement it on an empty struct with a value receiver:
+// The result of Definition is cached per type, so it must always return the same
+// value. Implement it on an empty struct with a value receiver:
 //
 //	type userType struct{}
 //
@@ -66,7 +69,15 @@ type spec struct {
 	prefix string
 }
 
-func specFor[T Definer]() (spec, error) {
+// specs caches each marker type's spec, keyed by reflect.Type, so encoding an ID does
+// not rebuild the prefix on every call.
+var specs sync.Map
+
+func specFor[T Definer]() (*spec, error) {
+	return loadOrBuild(&specs, reflect.TypeFor[T](), newSpec[T])
+}
+
+func newSpec[T Definer]() (spec, error) {
 	var marker T
 	def := marker.Definition()
 	if def.ObjectType == "" {
@@ -78,7 +89,7 @@ func specFor[T Definer]() (spec, error) {
 	return spec{Definition: def, prefix: def.ObjectType + def.Separator}, nil
 }
 
-func (s spec) check(id string) error {
+func (s *spec) check(id string) error {
 	if id == "" {
 		return &ValidationError{ObjectType: s.ObjectType, Value: id, Err: ErrEmptyValue}
 	}
@@ -90,7 +101,7 @@ func (s spec) check(id string) error {
 	return nil
 }
 
-func (s spec) parse(full string) (string, error) {
+func (s *spec) parse(full string) (string, error) {
 	bare, ok := strings.CutPrefix(full, s.prefix)
 	if !ok || bare == "" {
 		return "", &ValidationError{ObjectType: s.ObjectType, Value: full, Err: ErrInvalidFormat}
@@ -101,7 +112,7 @@ func (s spec) parse(full string) (string, error) {
 	return bare, nil
 }
 
-func (s spec) decode(format Format, value string) (string, error) {
+func (s *spec) decode(format Format, value string) (string, error) {
 	if format == FormatDropPrefix {
 		if err := s.check(value); err != nil {
 			return "", err
@@ -111,7 +122,7 @@ func (s spec) decode(format Format, value string) (string, error) {
 	return s.parse(value)
 }
 
-func (s spec) encode(format Format, id string) string {
+func (s *spec) encode(format Format, id string) string {
 	if format == FormatDropPrefix {
 		return id
 	}
@@ -195,13 +206,21 @@ func FromStorage[T Definer](value string) (ID[T], error) {
 }
 
 // mustSpec is for methods on an ID that already exists, which proves the definition is valid.
-func mustSpec[T Definer]() spec {
+func mustSpec[T Definer]() *spec {
 	s, err := specFor[T]()
 	if err != nil {
 		panic(err)
 	}
 	return s
 }
+
+// ObjectTypeOf returns T's object type, for example "user". It panics if T's
+// Definition is invalid.
+func ObjectTypeOf[T Definer]() string { return mustSpec[T]().ObjectType }
+
+// PrefixOf returns T's object type and separator, for example "user_". It panics if
+// T's Definition is invalid.
+func PrefixOf[T Definer]() string { return mustSpec[T]().prefix }
 
 // IsZero reports whether id is the zero (absent) ID.
 func (id ID[T]) IsZero() bool { return id.id == "" }
@@ -210,10 +229,10 @@ func (id ID[T]) IsZero() bool { return id.id == "" }
 func (id ID[T]) Bare() string { return id.id }
 
 // ObjectType returns the type's object type, for example "user".
-func (id ID[T]) ObjectType() string { return mustSpec[T]().ObjectType }
+func (id ID[T]) ObjectType() string { return ObjectTypeOf[T]() }
 
 // Prefix returns the object type and separator, for example "user_".
-func (id ID[T]) Prefix() string { return mustSpec[T]().prefix }
+func (id ID[T]) Prefix() string { return PrefixOf[T]() }
 
 // String returns the prefixed form, for example "user_abc-123", or "" for the zero ID.
 func (id ID[T]) String() string {

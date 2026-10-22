@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // Member is an ID that a Union can hold. Every ID[T] implements it.
@@ -67,7 +69,13 @@ type unionSpec struct {
 	members []MemberType
 }
 
-func unionSpecFor[U UnionDefiner]() (unionSpec, error) {
+var unionSpecs sync.Map
+
+func unionSpecFor[U UnionDefiner]() (*unionSpec, error) {
+	return loadOrBuild(&unionSpecs, reflect.TypeFor[U](), newUnionSpec[U])
+}
+
+func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 	var marker U
 	members := marker.Members()
 	if len(members) == 0 {

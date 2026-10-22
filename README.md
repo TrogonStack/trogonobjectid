@@ -71,21 +71,20 @@ A union always encodes the full form, in JSON, SQL and Spanner too, because the 
 
 ### Read the prefix from a proto annotation
 
-Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix:
+Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix. The other fields come from the base `Definition` you pass:
 
 ```go
-var ticketDefinition = func() trogonobjectid.Definition {
-	def := objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET)
-	def.Validate = trogonobjectid.ValidateUUID
-	return def
-}()
+var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
+	Validate: trogonobjectid.ValidateUUID,
+	Generate: trogonobjectid.GenerateUUIDv7,
+})
 
 type ticketType struct{}
 
 func (ticketType) Definition() trogonobjectid.Definition { return ticketDefinition }
 ```
 
-Keep the result in a package-level variable, because `Definition` methods run on every call.
+The package caches each type's definition, so `Definition` must always return the same value. `ObjectTypeOf[T]()` and `PrefixOf[T]()` read it without an ID.
 
 ## Options
 

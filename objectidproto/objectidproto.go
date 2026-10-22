@@ -7,15 +7,12 @@
 //	}
 //
 // The object type and separator then live in one place for every language that uses
-// the proto. Keep the result in a package-level variable, because Definition methods
-// run on every call:
+// the proto, and the other fields come from a base Definition:
 //
-//	var ticketDefinition = func() trogonobjectid.Definition {
-//		def := objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET)
-//		def.StorageFormat = trogonobjectid.FormatDropPrefix
-//		def.Validate = trogonobjectid.ValidateUUID
-//		return def
-//	}()
+//	var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
+//		StorageFormat: trogonobjectid.FormatDropPrefix,
+//		Validate:      trogonobjectid.ValidateUUID,
+//	})
 //
 //	type ticketType struct{}
 //
@@ -35,22 +32,23 @@ import (
 )
 
 // Definition returns a Definition with ObjectType and Separator read from the enum
-// value's annotation. An absent separator gives trogonobjectid.DefaultSeparator.
-// Set the other fields on the result.
-func Definition(value protoreflect.Enum) (trogonobjectid.Definition, error) {
+// value's annotation, over base. An absent separator gives
+// trogonobjectid.DefaultSeparator. base carries the fields the annotation does not, so
+// a new Definition field needs no change here.
+func Definition(value protoreflect.Enum, base trogonobjectid.Definition) (trogonobjectid.Definition, error) {
 	desc := value.Descriptor().Values().ByNumber(value.Number())
 	if desc == nil {
 		return trogonobjectid.Definition{}, fmt.Errorf("%w: %s has no value %d",
 			trogonobjectid.ErrInvalidDefinition, value.Descriptor().FullName(), value.Number())
 	}
 
-	opts, _ := desc.Options().(*descriptorpb.EnumValueOptions)
-	if opts == nil || !proto.HasExtension(opts, objectidv1alpha1.E_EnumValue) {
+	valueOpts, _ := desc.Options().(*descriptorpb.EnumValueOptions)
+	if valueOpts == nil || !proto.HasExtension(valueOpts, objectidv1alpha1.E_EnumValue) {
 		return trogonobjectid.Definition{}, fmt.Errorf("%w: %s has no %s annotation",
 			trogonobjectid.ErrInvalidDefinition, desc.FullName(), objectidv1alpha1.E_EnumValue.TypeDescriptor().FullName())
 	}
 
-	ext, _ := proto.GetExtension(opts, objectidv1alpha1.E_EnumValue).(*objectidv1alpha1.EnumValueOptions)
+	ext, _ := proto.GetExtension(valueOpts, objectidv1alpha1.E_EnumValue).(*objectidv1alpha1.EnumValueOptions)
 	if ext.GetObjectType() == "" {
 		return trogonobjectid.Definition{}, fmt.Errorf("%w: %s has an empty object_type",
 			trogonobjectid.ErrInvalidDefinition, desc.FullName())
@@ -60,12 +58,14 @@ func Definition(value protoreflect.Enum) (trogonobjectid.Definition, error) {
 	if ext.Separator != nil {
 		separator = ext.GetSeparator()
 	}
-	return trogonobjectid.Definition{ObjectType: ext.GetObjectType(), Separator: separator}, nil
+	base.ObjectType = ext.GetObjectType()
+	base.Separator = separator
+	return base, nil
 }
 
 // MustDefinition is like Definition but panics on error. Use it in package-level variables.
-func MustDefinition(value protoreflect.Enum) trogonobjectid.Definition {
-	def, err := Definition(value)
+func MustDefinition(value protoreflect.Enum, base trogonobjectid.Definition) trogonobjectid.Definition {
+	def, err := Definition(value, base)
 	if err != nil {
 		panic(err)
 	}
