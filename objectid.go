@@ -31,9 +31,6 @@ type Definition struct {
 	StorageFormat Format
 	// JSONFormat controls MarshalJSON and UnmarshalJSON.
 	JSONFormat Format
-	// Normalize rewrites the bare value into its canonical form before Validate runs, so
-	// equal IDs compare equal whatever form they arrived in. Nil keeps the value as given.
-	Normalize func(id string) (string, error)
 	// Validate checks the bare value. Nil accepts any non-empty value.
 	Validate func(id string) error
 	// Generate returns a new bare value for Generate. Nil makes Generate fail.
@@ -84,13 +81,6 @@ func specFor[T Definer]() (spec, error) {
 func (s spec) build(id string) (string, error) {
 	if id == "" {
 		return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: ErrEmptyValue}
-	}
-	if s.Normalize != nil {
-		normalized, err := s.Normalize(id)
-		if err != nil {
-			return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
-		}
-		id = normalized
 	}
 	if s.Validate != nil {
 		if err := s.Validate(id); err != nil {

@@ -22,7 +22,7 @@ func (invoiceType) Definition() trogonobjectid.Definition {
 		ObjectType:    "inv",
 		StorageFormat: trogonobjectid.FormatDropPrefix,
 		JSONFormat:    trogonobjectid.FormatDropPrefix,
-		Normalize:     trogonobjectid.NormalizeUUID,
+		Validate:      trogonobjectid.ValidateUUID,
 		Generate:      trogonobjectid.GenerateUUIDv7,
 	}
 }
@@ -95,8 +95,7 @@ Keep the result in a package-level variable, because `Definition` methods run on
 | `Separator` | `"_"` | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
-| `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`. `NormalizeUUID` gives lowercase hyphenated UUIDs and also rejects non-UUIDs, so a type that sets it needs no `ValidateUUID`. The Elixir package has no counterpart and keeps UUIDs as given |
-| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
+| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function. `ValidateUUID` accepts only lowercase hyphenated UUIDs, so one UUID cannot be spelled as two IDs |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
 
 ## Emitted forms
@@ -113,6 +112,6 @@ Keep the result in a package-level variable, because `Definition` methods run on
 
 `LogValue` exists because `slog.JSONHandler` otherwise calls `MarshalJSON`, which logs the bare value when `JSONFormat` is `FormatDropPrefix`. `MarshalText` always uses the full form because JSON map keys and flag values must parse back without other context.
 
-Decoders accept only the form that the matching encoder emits, apart from what `Normalize` rewrites, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
 
 The Spanner methods implement `spanner.Encoder` and `spanner.Decoder` by method set, so the package does not import the Spanner client.
