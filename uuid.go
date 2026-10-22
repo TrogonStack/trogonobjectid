@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// FromUUID returns the ID for u, after the type's Normalize and Validate.
+// FromUUID returns the ID for u, after the type's Validate.
 func FromUUID[T Definer](u uuid.UUID) (ID[T], error) {
 	return New[T](u.String())
 }
