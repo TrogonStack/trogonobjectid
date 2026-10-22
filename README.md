@@ -51,19 +51,18 @@ A `Union` holds one ID of any of several types and picks the type by prefix:
 ```go
 type principalUnion struct{}
 
-func (principalUnion) Members() []trogonobjectid.MemberType {
+func (principalUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.MemberOf[userType](),
-		trogonobjectid.MemberOf[systemType](),
+		trogonobjectid.TypeOf[userType](),
+		trogonobjectid.TypeOf[systemType](),
 	}
 }
 
 type PrincipalID = trogonobjectid.Union[principalUnion]
 
 p, err := trogonobjectid.ParseUnion[principalUnion]("system_cron")
-switch m := p.Member().(type) {
-case SystemID:
-	// m.Bare() == "cron"
+if sys, ok := trogonobjectid.UnionAs[systemType](p); ok {
+	// sys.Bare() == "cron"
 }
 ```
 
