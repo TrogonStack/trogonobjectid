@@ -71,15 +71,13 @@ A union always encodes the full form, in JSON, SQL and Spanner too, because the 
 
 ### Read the prefix from a proto annotation
 
-Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix. Options set the fields that the annotation does not carry:
+Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix. The other fields come from the base `Definition` you pass:
 
 ```go
-var ticketDefinition = objectidproto.MustDefinition(
-	acmev1.ObjectType_OBJECT_TYPE_TICKET,
-	objectidproto.WithNormalize(trogonobjectid.NormalizeUUID),
-	objectidproto.WithValidate(trogonobjectid.ValidateUUID),
-	objectidproto.WithGenerate(trogonobjectid.GenerateUUIDv7),
-)
+var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
+	Normalize: trogonobjectid.NormalizeUUID,
+	Generate:  trogonobjectid.GenerateUUIDv7,
+})
 
 type ticketType struct{}
 

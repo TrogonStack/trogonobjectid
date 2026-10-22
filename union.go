@@ -69,22 +69,10 @@ type unionSpec struct {
 	members []MemberType
 }
 
-type cachedUnionSpec struct {
-	spec unionSpec
-	err  error
-}
-
 var unionSpecs sync.Map
 
-func unionSpecFor[U UnionDefiner]() (unionSpec, error) {
-	key := reflect.TypeFor[U]()
-	if cached, ok := unionSpecs.Load(key); ok {
-		c := cached.(cachedUnionSpec)
-		return c.spec, c.err
-	}
-	s, err := newUnionSpec[U]()
-	unionSpecs.Store(key, cachedUnionSpec{spec: s, err: err})
-	return s, err
+func unionSpecFor[U UnionDefiner]() (*unionSpec, error) {
+	return loadOrBuild(&unionSpecs, reflect.TypeFor[U](), newUnionSpec[U])
 }
 
 func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
