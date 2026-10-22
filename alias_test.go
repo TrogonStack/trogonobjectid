@@ -31,8 +31,8 @@ type paymentUnion struct{}
 
 func (paymentUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.TypeOf[paymentMethodType](),
-		trogonobjectid.TypeOf[userType](),
+		trogonobjectid.MemberOf[paymentMethodType](),
+		trogonobjectid.MemberOf[userType](),
 	}
 }
 
@@ -40,8 +40,8 @@ type clashUnion struct{}
 
 func (clashUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.TypeOf[paymentMethodType](),
-		trogonobjectid.TypeOf[cardType](),
+		trogonobjectid.MemberOf[paymentMethodType](),
+		trogonobjectid.MemberOf[cardType](),
 	}
 }
 
