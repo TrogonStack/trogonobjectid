@@ -1,5 +1,23 @@
 # Changelog
 
+## [0.4.0](https://github.com/TrogonStack/trogonobjectid/compare/v0.3.0...v0.4.0) (2026-10-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* narrow unions with UnionAs and name member lists Types ([#7](https://github.com/TrogonStack/trogonobjectid/issues/7))
+* name object types and separators, and check definitions early ([#4](https://github.com/TrogonStack/trogonobjectid/issues/4))
+* take a base Definition in objectidproto and cache definitions per type ([#3](https://github.com/TrogonStack/trogonobjectid/issues/3))
+
+### Features
+
+* Accept earlier prefixes with Definition.Aliases ([#8](https://github.com/TrogonStack/trogonobjectid/issues/8)) ([542fc90](https://github.com/TrogonStack/trogonobjectid/commit/542fc90cb33936cccfbc86926939430a74665600))
+* Add objectidtest for deterministic IDs in tests ([#6](https://github.com/TrogonStack/trogonobjectid/issues/6)) ([869bcb9](https://github.com/TrogonStack/trogonobjectid/commit/869bcb927e3ea9fd64b61198dc685355e885bb3e))
+* Build IDs from UUIDs and scan native UUID values ([#5](https://github.com/TrogonStack/trogonobjectid/issues/5)) ([f4bf2de](https://github.com/TrogonStack/trogonobjectid/commit/f4bf2de9952684160caf593b80bc51ec37b390e5))
+* Name object types and separators, and check definitions early ([#4](https://github.com/TrogonStack/trogonobjectid/issues/4)) ([3856a56](https://github.com/TrogonStack/trogonobjectid/commit/3856a56890a720102f8e6593c07df5adb3da662e))
+* Narrow unions with UnionAs and name member lists Types ([#7](https://github.com/TrogonStack/trogonobjectid/issues/7)) ([91b78b0](https://github.com/TrogonStack/trogonobjectid/commit/91b78b06e19c87932d079539e183ff218ff3d160))
+* Take a base Definition in objectidproto and cache definitions per type ([#3](https://github.com/TrogonStack/trogonobjectid/issues/3)) ([8d466df](https://github.com/TrogonStack/trogonobjectid/commit/8d466df0efe5a13c146ef20c38c788add0925b12))
+
 ## [0.3.0](https://github.com/TrogonStack/trogonobjectid/compare/v0.2.0...v0.3.0) (2026-10-22)
 
 
