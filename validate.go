@@ -1,13 +1,16 @@
 package trogonobjectid
 
-import "github.com/google/uuid"
+import (
+	"strings"
 
-// ValidateUUID accepts the UUID forms that uuid.Parse accepts. It keeps the value as given.
+	"github.com/google/uuid"
+)
+
+// ValidateUUID accepts the UUID forms that uuid.Parse accepts. It keeps the value as
+// given; use NormalizeUUID instead to store one canonical form.
 func ValidateUUID(id string) error {
-	if _, err := uuid.Parse(id); err != nil {
-		return ErrInvalidUUID
-	}
-	return nil
+	_, err := NormalizeUUID(id)
+	return err
 }
 
 // ValidateInteger accepts an optional sign followed by decimal digits, with no size limit,
@@ -47,11 +50,15 @@ func GenerateUUIDv4() (string, error) {
 }
 
 // NormalizeUUID returns the canonical lowercase hyphenated form of any UUID form that
-// uuid.Parse accepts, so upper-case and URN inputs name the same ID.
+// uuid.Parse accepts, so upper-case and URN inputs name the same ID. It also rejects
+// values that are not UUIDs, so a type that sets it needs no ValidateUUID.
 func NormalizeUUID(id string) (string, error) {
 	u, err := uuid.Parse(id)
 	if err != nil {
 		return "", ErrInvalidUUID
+	}
+	if len(id) == 36 && id == strings.ToLower(id) {
+		return id, nil
 	}
 	return u.String(), nil
 }
