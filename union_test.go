@@ -24,7 +24,7 @@ type SystemID = trogonobjectid.ID[systemType]
 
 type principalUnion struct{}
 
-func (principalUnion) Members() []trogonobjectid.MemberType {
+func (principalUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
 		trogonobjectid.MemberOf[userType](),
 		trogonobjectid.MemberOf[systemType](),
@@ -48,7 +48,7 @@ func (acmeAdminType) Definition() trogonobjectid.Definition {
 
 type overlapUnion struct{}
 
-func (overlapUnion) Members() []trogonobjectid.MemberType {
+func (overlapUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
 		trogonobjectid.MemberOf[acmeType](),
 		trogonobjectid.MemberOf[acmeAdminType](),
@@ -57,11 +57,11 @@ func (overlapUnion) Members() []trogonobjectid.MemberType {
 
 type emptyUnion struct{}
 
-func (emptyUnion) Members() []trogonobjectid.MemberType { return nil }
+func (emptyUnion) Types() []trogonobjectid.MemberType { return nil }
 
 type duplicateUnion struct{}
 
-func (duplicateUnion) Members() []trogonobjectid.MemberType {
+func (duplicateUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
 		trogonobjectid.MemberOf[userType](),
 		trogonobjectid.MemberOf[userType](),
@@ -70,7 +70,7 @@ func (duplicateUnion) Members() []trogonobjectid.MemberType {
 
 type badMemberUnion struct{}
 
-func (badMemberUnion) Members() []trogonobjectid.MemberType {
+func (badMemberUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{trogonobjectid.MemberOf[badType]()}
 }
 
@@ -247,6 +247,21 @@ func TestUnionZero(t *testing.T) {
 	assert.True(t, p.IsZero())
 	assert.Nil(t, p.Member())
 	assert.Empty(t, p.String())
+}
+
+func TestUnionAs(t *testing.T) {
+	user := trogonobjectid.MustNew[userType]("abc-123")
+	u := trogonobjectid.MustNewUnion[principalUnion](user)
+
+	got, ok := trogonobjectid.UnionAs[userType](u)
+	require.True(t, ok)
+	assert.Equal(t, user, got)
+
+	_, ok = trogonobjectid.UnionAs[systemType](u)
+	assert.False(t, ok)
+
+	_, ok = trogonobjectid.UnionAs[userType](trogonobjectid.Union[principalUnion]{})
+	assert.False(t, ok)
 }
 
 func TestUnionSpanner(t *testing.T) {

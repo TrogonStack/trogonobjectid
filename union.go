@@ -43,7 +43,7 @@ func MemberOf[T Definer]() MemberType {
 //
 //	type principalUnion struct{}
 //
-//	func (principalUnion) Members() []trogonobjectid.MemberType {
+//	func (principalUnion) Types() []trogonobjectid.MemberType {
 //		return []trogonobjectid.MemberType{
 //			trogonobjectid.MemberOf[userType](),
 //			trogonobjectid.MemberOf[systemType](),
@@ -52,11 +52,11 @@ func MemberOf[T Definer]() MemberType {
 //
 //	type PrincipalID = trogonobjectid.Union[principalUnion]
 type UnionDefiner interface {
-	Members() []MemberType
+	Types() []MemberType
 }
 
 // Union holds one ID of any of its member types, chosen by prefix when parsing.
-// Use a type switch on Member to get the typed ID back.
+// Use UnionAs, or a type switch on Member, to get the typed ID back.
 //
 // Every encoding uses the member's full form, because the prefix is the only thing
 // that tells the member types apart. The zero value is an absent ID.
@@ -77,7 +77,7 @@ func unionSpecFor[U UnionDefiner]() (*unionSpec, error) {
 
 func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 	var marker U
-	members := marker.Members()
+	members := marker.Types()
 	if len(members) == 0 {
 		return unionSpec{}, fmt.Errorf("%w: %T has no members", ErrInvalidDefinition, marker)
 	}
@@ -168,6 +168,13 @@ func MustParseUnion[U UnionDefiner](str string) Union[U] {
 
 // Member returns the wrapped ID, or nil for the zero union.
 func (u Union[U]) Member() Member { return u.member }
+
+// UnionAs returns u's member as an ID[T], and false when u holds another type or
+// is zero. It narrows a union without a type switch.
+func UnionAs[T Definer, U UnionDefiner](u Union[U]) (ID[T], bool) {
+	id, ok := u.member.(ID[T])
+	return id, ok
+}
 
 // IsZero reports whether u is the zero (absent) union.
 func (u Union[U]) IsZero() bool { return u.member == nil }
