@@ -22,7 +22,7 @@ func (invoiceType) Definition() trogonobjectid.Definition {
 		ObjectType:    "inv",
 		StorageFormat: trogonobjectid.FormatDropPrefix,
 		JSONFormat:    trogonobjectid.FormatDropPrefix,
-		Validate:      trogonobjectid.ValidateUUID,
+		Normalize:     trogonobjectid.NormalizeUUID,
 		Generate:      trogonobjectid.GenerateUUIDv7,
 	}
 }
@@ -67,19 +67,17 @@ case SystemID:
 }
 ```
 
-A union always encodes the full form, in JSON and in storage too, because the prefix is the only thing that tells the member types apart. When prefixes overlap, such as `acme_` and `acme_admin_`, the longest prefix wins.
+A union always encodes the full form, in JSON, SQL and Spanner too, because the prefix is the only thing that tells the member types apart. When prefixes overlap, such as `acme_` and `acme_admin_`, the longest prefix wins.
 
 ### Read the prefix from a proto annotation
 
-Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix. Options set the fields that the annotation does not carry:
+Package `objectidproto` reads `object_type` and `separator` from the `trogon.object_id.v1alpha1.enum_value` annotation on an enum value, so every language that uses the proto shares one prefix. The other fields come from the base `Definition` you pass:
 
 ```go
-var ticketDefinition = objectidproto.MustDefinition(
-	acmev1.ObjectType_OBJECT_TYPE_TICKET,
-	objectidproto.WithNormalize(trogonobjectid.NormalizeUUID),
-	objectidproto.WithValidate(trogonobjectid.ValidateUUID),
-	objectidproto.WithGenerate(trogonobjectid.GenerateUUIDv7),
-)
+var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
+	Normalize: trogonobjectid.NormalizeUUID,
+	Generate:  trogonobjectid.GenerateUUIDv7,
+})
 
 type ticketType struct{}
 
@@ -96,7 +94,7 @@ The package caches each type's definition, so `Definition` must always return th
 | `Separator` | `DefaultSeparator` (`"_"`) | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
-| `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`; use `NormalizeUUID` for lowercase hyphenated UUIDs |
+| `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`. `NormalizeUUID` gives lowercase hyphenated UUIDs and also rejects non-UUIDs, so a type that sets it needs no `ValidateUUID`. The Elixir package has no counterpart and keeps UUIDs as given |
 | `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
 
@@ -111,7 +109,9 @@ func TestIDDefinitions(t *testing.T) {
 }
 ```
 
-A value with another type's prefix fails with a `*WrongPrefixError`, which names the prefix it got and the one it expected. It unwraps to `ErrInvalidFormat`.
+A value without one of the type's prefixes fails with a `*WrongPrefixError`, which lists the prefixes the type accepts. It unwraps to `ErrInvalidFormat`. Every parse error is a `*ValidationError` with the `ObjectTypes` it was checked against (every member's for a union) and the input `Value`.
+
+`ObjectType`, `Separator` and `Prefix` are named string types, so an object type, a separator and a prefix cannot be swapped by mistake. `Bare()` and the parse inputs stay `string`, because they are the wire and storage boundary.
 
 ### Work with UUIDs
 
@@ -137,12 +137,10 @@ buyer := objectidtest.FromSeed[fanType]("buyer") // fan_<UUIDv5 of "buyer">
 | `MarshalJSON`, `UnmarshalJSON` | Full or bare | `JSONFormat` |
 | `Storage`, `FromStorage` | Full or bare | `StorageFormat` |
 | `Value`, `Scan` (`database/sql`) | Full or bare | `StorageFormat` |
-| `EncodeSpanner`, `DecodeSpanner` (Cloud Spanner) | Full or bare | `StorageFormat` |
+| `EncodeSpanner`, `DecodeSpanner` (Cloud Spanner) | Full or bare; unions always full | `StorageFormat` |
 
 `LogValue` exists because `slog.JSONHandler` otherwise calls `MarshalJSON`, which logs the bare value when `JSONFormat` is `FormatDropPrefix`. `MarshalText` always uses the full form because JSON map keys and flag values must parse back without other context.
 
-Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+Decoders accept only the form that the matching encoder emits, apart from what `Normalize` rewrites, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
 
 The Spanner methods implement `spanner.Encoder` and `spanner.Decoder` by method set, so the package does not import the Spanner client.
-
-`Normalize` has no counterpart in the Elixir package, which keeps UUIDs as given. Without it, `inv_0199E3A1-...` and `inv_0199e3a1-...` are two different IDs.
