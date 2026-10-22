@@ -1,5 +1,16 @@
 # Changelog
 
+## [0.3.0](https://github.com/TrogonStack/trogonobjectid/compare/v0.2.0...v0.3.0) (2026-10-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* accept only canonical UUIDs and drop Normalize ([#12](https://github.com/TrogonStack/trogonobjectid/issues/12))
+
+### Features
+
+* Accept only canonical UUIDs and drop Normalize ([#12](https://github.com/TrogonStack/trogonobjectid/issues/12)) ([1e35add](https://github.com/TrogonStack/trogonobjectid/commit/1e35add8957592fc51ab253a290879ff3da071f3))
+
 ## [0.2.0](https://github.com/TrogonStack/trogonobjectid/compare/v0.1.0...v0.2.0) (2026-10-22)
 
 
