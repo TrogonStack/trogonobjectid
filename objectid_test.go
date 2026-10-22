@@ -353,61 +353,20 @@ func TestZero(t *testing.T) {
 	assert.Equal(t, UserID{}, id)
 }
 
-// canonicalType's Validate accepts only the canonical form, so every decoder case
-// also proves that Normalize runs before Validate.
-type canonicalType struct{}
+func TestValidateUUID(t *testing.T) {
+	require.NoError(t, trogonobjectid.ValidateUUID(invoiceUUID))
 
-func (canonicalType) Definition() trogonobjectid.Definition {
-	return trogonobjectid.Definition{
-		ObjectType:    "inv",
-		StorageFormat: trogonobjectid.FormatDropPrefix,
-		JSONFormat:    trogonobjectid.FormatDropPrefix,
-		Normalize:     trogonobjectid.NormalizeUUID,
-		Validate: func(id string) error {
-			if id != invoiceUUID {
-				return errors.New("not canonical")
-			}
-			return nil
-		},
-	}
-}
-
-const upperInvoiceUUID = "0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F"
-
-func TestNormalize(t *testing.T) {
-	want := trogonobjectid.MustNew[canonicalType](invoiceUUID)
-
-	decoders := map[string]func() (trogonobjectid.ID[canonicalType], error){
-		"New": func() (trogonobjectid.ID[canonicalType], error) {
-			return trogonobjectid.New[canonicalType](upperInvoiceUUID)
-		},
-		"URN": func() (trogonobjectid.ID[canonicalType], error) {
-			return trogonobjectid.New[canonicalType]("urn:uuid:" + invoiceUUID)
-		},
-		"Parse": func() (trogonobjectid.ID[canonicalType], error) {
-			return trogonobjectid.Parse[canonicalType]("inv_" + upperInvoiceUUID)
-		},
-		"Scan": func() (trogonobjectid.ID[canonicalType], error) {
-			var id trogonobjectid.ID[canonicalType]
-			return id, id.Scan(upperInvoiceUUID)
-		},
-		"JSON": func() (trogonobjectid.ID[canonicalType], error) {
-			var id trogonobjectid.ID[canonicalType]
-			return id, json.Unmarshal([]byte(`"`+upperInvoiceUUID+`"`), &id)
-		},
-	}
-	for name, decode := range decoders {
-		t.Run(name+" stores the canonical form", func(t *testing.T) {
-			got, err := decode()
-			require.NoError(t, err)
-			assert.Equal(t, want, got)
+	// Only one form per UUID is valid, so two spellings can never be two IDs.
+	for name, input := range map[string]string{
+		"upper case": "0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F",
+		"URN":        "urn:uuid:" + invoiceUUID,
+		"braces":     "{" + invoiceUUID + "}",
+		"no hyphens": "0199e3a17c2b7d4e9f102a3b4c5d6e7f",
+	} {
+		t.Run("rejects "+name, func(t *testing.T) {
+			require.ErrorIs(t, trogonobjectid.ValidateUUID(input), trogonobjectid.ErrInvalidUUID)
 		})
 	}
-
-	t.Run("rejects a value that is not a UUID", func(t *testing.T) {
-		_, err := trogonobjectid.New[canonicalType]("nope")
-		require.ErrorIs(t, err, trogonobjectid.ErrInvalidUUID)
-	})
 }
 
 func TestSpanner(t *testing.T) {
@@ -479,9 +438,9 @@ func BenchmarkParse(b *testing.B) {
 	}
 }
 
-func BenchmarkNormalizeUUID(b *testing.B) {
+func BenchmarkValidateUUID(b *testing.B) {
 	b.ReportAllocs()
 	for b.Loop() {
-		_, _ = trogonobjectid.NormalizeUUID(invoiceUUID)
+		_ = trogonobjectid.ValidateUUID(invoiceUUID)
 	}
 }
