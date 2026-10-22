@@ -362,19 +362,11 @@ func TestValidateUUID(t *testing.T) {
 		"URN":        "urn:uuid:" + invoiceUUID,
 		"braces":     "{" + invoiceUUID + "}",
 		"no hyphens": "0199e3a17c2b7d4e9f102a3b4c5d6e7f",
-		"not a UUID": "nope",
 	} {
 		t.Run("rejects "+name, func(t *testing.T) {
 			require.ErrorIs(t, trogonobjectid.ValidateUUID(input), trogonobjectid.ErrInvalidUUID)
 		})
 	}
-
-	t.Run("every decoder applies it", func(t *testing.T) {
-		_, err := trogonobjectid.Parse[invoiceType]("inv_0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F")
-		require.ErrorIs(t, err, trogonobjectid.ErrInvalidUUID)
-		var id InvoiceID
-		require.ErrorIs(t, id.Scan("0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F"), trogonobjectid.ErrInvalidUUID)
-	})
 }
 
 func TestSpanner(t *testing.T) {

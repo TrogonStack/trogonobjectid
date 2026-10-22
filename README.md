@@ -95,7 +95,7 @@ Keep the result in a package-level variable, because `Definition` methods run on
 | `Separator` | `"_"` | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
-| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function. `ValidateUUID` accepts only lowercase hyphenated UUIDs, so one UUID cannot be spelled as two IDs |
+| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function. `ValidateUUID` accepts only the lowercase hyphenated form |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
 
 ## Emitted forms

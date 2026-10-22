@@ -5,10 +5,16 @@ import "github.com/google/uuid"
 // ValidateUUID accepts only the canonical form: 36 characters, lowercase, hyphenated.
 // It rejects upper case, URN and brace forms, so one UUID cannot be spelled as two IDs.
 func ValidateUUID(id string) error {
-	if !isCanonicalUUID(id) {
+	if len(id) != 36 {
 		return ErrInvalidUUID
 	}
-	if _, err := uuid.Parse(id); err != nil {
+	// A byte scan instead of comparing with uuid.UUID.String keeps decoding allocation-free.
+	for i := 0; i < len(id); i++ {
+		if id[i] >= 'A' && id[i] <= 'F' {
+			return ErrInvalidUUID
+		}
+	}
+	if uuid.Validate(id) != nil {
 		return ErrInvalidUUID
 	}
 	return nil
@@ -48,18 +54,4 @@ func GenerateUUIDv4() (string, error) {
 		return "", err
 	}
 	return u.String(), nil
-}
-
-// isCanonicalUUID reports whether id has the 36-character lowercase shape. uuid.Parse
-// then checks the hex digits and hyphen positions.
-func isCanonicalUUID(id string) bool {
-	if len(id) != 36 {
-		return false
-	}
-	for i := 0; i < len(id); i++ {
-		if id[i] >= 'A' && id[i] <= 'F' {
-			return false
-		}
-	}
-	return true
 }
