@@ -90,12 +90,27 @@ The package caches each type's definition, so `Definition` must always return th
 
 | Field | Default | Effect |
 | --- | --- | --- |
-| `ObjectType` | required | Prefix without the separator, for example `"user"` |
-| `Separator` | `"_"` | Goes between the object type and the bare value |
+| `ObjectType` | required | Prefix without the separator, for example `"user"`. Lowercase snake_case of at most 63 characters, the TypeID prefix rule |
+| `Separator` | `DefaultSeparator` (`"_"`) | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
 | `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function. `ValidateUUID` accepts only the lowercase hyphenated form |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
+
+### Check definitions in a test
+
+`Check[T]()` and `CheckUnion[U]()` report a bad definition before the first ID is built: an invalid object type, a generator that the type's own validation rejects, or duplicate union prefixes. The Elixir package does these checks at compile time.
+
+```go
+func TestIDDefinitions(t *testing.T) {
+	require.NoError(t, trogonobjectid.Check[invoiceType]())
+	require.NoError(t, trogonobjectid.CheckUnion[principalUnion]())
+}
+```
+
+A value without one of the type's prefixes fails with a `*WrongPrefixError`, which lists the prefixes the type accepts. It unwraps to `ErrInvalidFormat`. Every parse error is a `*ValidationError` with the `ObjectTypes` it was checked against (every member's for a union) and the input `Value`.
+
+`ObjectType`, `Separator` and `Prefix` are named string types, so an object type, a separator and a prefix cannot be swapped by mistake. `Bare()` and the parse inputs stay `string`, because they are the wire and storage boundary.
 
 ## Emitted forms
 

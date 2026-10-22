@@ -68,8 +68,8 @@ func TestNew(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, "abc-123", id.Bare())
 		assert.Equal(t, "user_abc-123", id.String())
-		assert.Equal(t, "user", id.ObjectType())
-		assert.Equal(t, "user_", id.Prefix())
+		assert.Equal(t, trogonobjectid.ObjectType("user"), id.ObjectType())
+		assert.Equal(t, trogonobjectid.Prefix("user_"), id.Prefix())
 		assert.False(t, id.IsZero())
 	})
 
@@ -99,7 +99,7 @@ func TestNew(t *testing.T) {
 		_, err := trogonobjectid.New[invoiceType]("nope")
 		var verr *trogonobjectid.ValidationError
 		require.ErrorAs(t, err, &verr)
-		assert.Equal(t, "inv", verr.ObjectType)
+		assert.Equal(t, []trogonobjectid.ObjectType{"inv"}, verr.ObjectTypes)
 		assert.Equal(t, "nope", verr.Value)
 		assert.EqualError(t, err, `trogonobjectid: invalid inv value "nope": invalid uuid`)
 	})
@@ -398,9 +398,9 @@ func TestSpanner(t *testing.T) {
 }
 
 func TestTypeLevelAccessors(t *testing.T) {
-	assert.Equal(t, "inv", trogonobjectid.ObjectTypeOf[invoiceType]())
-	assert.Equal(t, "inv_", trogonobjectid.PrefixOf[invoiceType]())
-	assert.Equal(t, "order#", trogonobjectid.PrefixOf[orderType]())
+	assert.Equal(t, trogonobjectid.ObjectType("inv"), trogonobjectid.ObjectTypeOf[invoiceType]())
+	assert.Equal(t, trogonobjectid.Prefix("inv_"), trogonobjectid.PrefixOf[invoiceType]())
+	assert.Equal(t, trogonobjectid.Prefix("order#"), trogonobjectid.PrefixOf[orderType]())
 	assert.Panics(t, func() { trogonobjectid.PrefixOf[badType]() })
 }
 

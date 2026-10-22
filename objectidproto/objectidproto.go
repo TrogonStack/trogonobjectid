@@ -56,9 +56,9 @@ func Definition(value protoreflect.Enum, base trogonobjectid.Definition) (trogon
 
 	separator := trogonobjectid.DefaultSeparator
 	if ext.Separator != nil {
-		separator = ext.GetSeparator()
+		separator = trogonobjectid.Separator(ext.GetSeparator())
 	}
-	base.ObjectType = ext.GetObjectType()
+	base.ObjectType = trogonobjectid.ObjectType(ext.GetObjectType())
 	base.Separator = separator
 	return base, nil
 }

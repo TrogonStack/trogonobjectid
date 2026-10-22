@@ -14,13 +14,13 @@ import (
 // Member is an ID that a Union can hold. Every ID[T] implements it.
 type Member interface {
 	fmt.Stringer
-	Prefix() string
+	Prefix() Prefix
 	IsZero() bool
 }
 
 // MemberType describes one ID type that a Union accepts. Make it with MemberOf.
 type MemberType struct {
-	objectType string
+	objectType ObjectType
 	prefix     string
 	err        error
 	parse      func(s string) (Member, error)
@@ -65,8 +65,8 @@ type Union[U UnionDefiner] struct {
 }
 
 type unionSpec struct {
-	name    string
-	members []MemberType
+	objectTypes []ObjectType
+	members     []MemberType
 }
 
 var unionSpecs sync.Map
@@ -82,7 +82,7 @@ func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 		return unionSpec{}, fmt.Errorf("%w: %T has no members", ErrInvalidDefinition, marker)
 	}
 
-	names := make([]string, 0, len(members))
+	objectTypes := make([]ObjectType, 0, len(members))
 	seen := make(map[string]bool, len(members))
 	for _, m := range members {
 		if m.err != nil {
@@ -92,13 +92,20 @@ func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 			return unionSpec{}, fmt.Errorf("%w: %T has duplicate prefix %q", ErrInvalidDefinition, marker, m.prefix)
 		}
 		seen[m.prefix] = true
-		names = append(names, m.objectType)
+		objectTypes = append(objectTypes, m.objectType)
 	}
 
 	// Longest prefix first, so "acme_admin_" wins over "acme_" for "acme_admin_xyz".
 	sorted := append([]MemberType(nil), members...)
 	sort.SliceStable(sorted, func(i, j int) bool { return len(sorted[i].prefix) > len(sorted[j].prefix) })
-	return unionSpec{name: strings.Join(names, "|"), members: sorted}, nil
+	return unionSpec{objectTypes: objectTypes, members: sorted}, nil
+}
+
+// CheckUnion reports whether U's member list is usable: at least one member, valid
+// member definitions and no duplicate prefixes.
+func CheckUnion[U UnionDefiner]() error {
+	_, err := unionSpecFor[U]()
+	return err
 }
 
 // NewUnion wraps m, which must be a non-zero ID of one of the union's member types.
@@ -108,14 +115,14 @@ func NewUnion[U UnionDefiner](m Member) (Union[U], error) {
 		return Union[U]{}, err
 	}
 	if m == nil || m.IsZero() {
-		return Union[U]{}, &ValidationError{ObjectType: s.name, Err: ErrEmptyValue}
+		return Union[U]{}, &ValidationError{ObjectTypes: s.objectTypes, Err: ErrEmptyValue}
 	}
 	for _, mt := range s.members {
 		if mt.holds(m) {
 			return Union[U]{member: m}, nil
 		}
 	}
-	return Union[U]{}, &ValidationError{ObjectType: s.name, Value: m.String(), Err: ErrNotMember}
+	return Union[U]{}, &ValidationError{ObjectTypes: s.objectTypes, Value: m.String(), Err: ErrNotMember}
 }
 
 // MustNewUnion is like NewUnion but panics on error. Use it for constants and tests.
@@ -143,7 +150,11 @@ func ParseUnion[U UnionDefiner](str string) (Union[U], error) {
 			return Union[U]{member: m}, nil
 		}
 	}
-	return Union[U]{}, &ValidationError{ObjectType: s.name, Value: str, Err: ErrInvalidFormat}
+	prefixes := make([]Prefix, len(s.members))
+	for i, mt := range s.members {
+		prefixes[i] = Prefix(mt.prefix)
+	}
+	return Union[U]{}, &ValidationError{ObjectTypes: s.objectTypes, Value: str, Err: &WrongPrefixError{Want: prefixes}}
 }
 
 // MustParseUnion is like ParseUnion but panics on error. Use it for constants and tests.

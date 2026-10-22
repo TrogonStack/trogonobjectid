@@ -3,6 +3,7 @@ package trogonobjectid
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"reflect"
@@ -10,8 +11,38 @@ import (
 	"sync"
 )
 
+// ObjectType names an object ID type, for example "user". It is lowercase snake_case
+// of at most 63 characters, the TypeID prefix rule.
+type ObjectType string
+
+// Separator goes between the object type and the bare value.
+type Separator string
+
+// Prefix is an object type followed by its separator, for example "user_".
+type Prefix string
+
 // DefaultSeparator is the separator used when Definition.Separator is empty.
-const DefaultSeparator = "_"
+const DefaultSeparator Separator = "_"
+
+// validate applies the TypeID prefix rule: lowercase letters and underscores, at most
+// 63 characters, starting and ending with a letter.
+func (t ObjectType) validate() error {
+	if t == "" {
+		return errors.New("empty object type")
+	}
+	if len(t) > 63 {
+		return fmt.Errorf("object type %q is longer than 63 characters", t)
+	}
+	if t[0] == '_' || t[len(t)-1] == '_' {
+		return fmt.Errorf("object type %q starts or ends with an underscore", t)
+	}
+	for i := 0; i < len(t); i++ {
+		if c := t[i]; (c < 'a' || c > 'z') && c != '_' {
+			return fmt.Errorf("object type %q is not lowercase snake_case", t)
+		}
+	}
+	return nil
+}
 
 // Format selects whether an encoding keeps the prefix.
 type Format int
@@ -26,9 +57,9 @@ const (
 // Definition configures an object ID type.
 type Definition struct {
 	// ObjectType is the prefix without the separator, for example "user". It is required.
-	ObjectType string
+	ObjectType ObjectType
 	// Separator goes between the object type and the bare value. Empty means DefaultSeparator.
-	Separator string
+	Separator Separator
 	// StorageFormat controls Storage, FromStorage, Value and Scan.
 	StorageFormat Format
 	// JSONFormat controls MarshalJSON and UnmarshalJSON.
@@ -67,6 +98,8 @@ type ID[T Definer] struct {
 type spec struct {
 	Definition
 	prefix string
+	// objectTypes is the one-element list that every ValidationError carries.
+	objectTypes []ObjectType
 }
 
 // specs caches each marker type's spec, keyed by reflect.Type, so encoding an ID does
@@ -80,22 +113,26 @@ func specFor[T Definer]() (*spec, error) {
 func newSpec[T Definer]() (spec, error) {
 	var marker T
 	def := marker.Definition()
-	if def.ObjectType == "" {
-		return spec{}, fmt.Errorf("%w: empty object type for %T", ErrInvalidDefinition, marker)
+	if err := def.ObjectType.validate(); err != nil {
+		return spec{}, fmt.Errorf("%w: %T: %w", ErrInvalidDefinition, marker, err)
 	}
 	if def.Separator == "" {
 		def.Separator = DefaultSeparator
 	}
-	return spec{Definition: def, prefix: def.ObjectType + def.Separator}, nil
+	return spec{
+		Definition:  def,
+		prefix:      string(def.ObjectType) + string(def.Separator),
+		objectTypes: []ObjectType{def.ObjectType},
+	}, nil
 }
 
 func (s *spec) check(id string) error {
 	if id == "" {
-		return &ValidationError{ObjectType: s.ObjectType, Value: id, Err: ErrEmptyValue}
+		return &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: ErrEmptyValue}
 	}
 	if s.Validate != nil {
 		if err := s.Validate(id); err != nil {
-			return &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
+			return &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: err}
 		}
 	}
 	return nil
@@ -103,8 +140,11 @@ func (s *spec) check(id string) error {
 
 func (s *spec) parse(full string) (string, error) {
 	bare, ok := strings.CutPrefix(full, s.prefix)
-	if !ok || bare == "" {
-		return "", &ValidationError{ObjectType: s.ObjectType, Value: full, Err: ErrInvalidFormat}
+	if !ok {
+		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: &WrongPrefixError{Want: []Prefix{Prefix(s.prefix)}}}
+	}
+	if bare == "" {
+		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: ErrInvalidFormat}
 	}
 	if err := s.check(bare); err != nil {
 		return "", err
@@ -216,11 +256,32 @@ func mustSpec[T Definer]() *spec {
 
 // ObjectTypeOf returns T's object type, for example "user". It panics if T's
 // Definition is invalid.
-func ObjectTypeOf[T Definer]() string { return mustSpec[T]().ObjectType }
+func ObjectTypeOf[T Definer]() ObjectType { return mustSpec[T]().ObjectType }
+
+// Check reports whether T's Definition is usable: a valid object type, and a generator
+// whose values pass the type's own Validate. Call it from a test or init,
+// the way the Elixir package checks options at compile time.
+func Check[T Definer]() error {
+	s, err := specFor[T]()
+	if err != nil {
+		return err
+	}
+	if s.Generate == nil {
+		return nil
+	}
+	id, err := s.Generate()
+	if err != nil {
+		return fmt.Errorf("%w: generate %s: %w", ErrInvalidDefinition, s.ObjectType, err)
+	}
+	if err := s.check(id); err != nil {
+		return fmt.Errorf("%w: generated %s value is invalid: %w", ErrInvalidDefinition, s.ObjectType, err)
+	}
+	return nil
+}
 
 // PrefixOf returns T's object type and separator, for example "user_". It panics if
 // T's Definition is invalid.
-func PrefixOf[T Definer]() string { return mustSpec[T]().prefix }
+func PrefixOf[T Definer]() Prefix { return Prefix(mustSpec[T]().prefix) }
 
 // IsZero reports whether id is the zero (absent) ID.
 func (id ID[T]) IsZero() bool { return id.id == "" }
@@ -229,10 +290,10 @@ func (id ID[T]) IsZero() bool { return id.id == "" }
 func (id ID[T]) Bare() string { return id.id }
 
 // ObjectType returns the type's object type, for example "user".
-func (id ID[T]) ObjectType() string { return ObjectTypeOf[T]() }
+func (id ID[T]) ObjectType() ObjectType { return ObjectTypeOf[T]() }
 
 // Prefix returns the object type and separator, for example "user_".
-func (id ID[T]) Prefix() string { return PrefixOf[T]() }
+func (id ID[T]) Prefix() Prefix { return PrefixOf[T]() }
 
 // String returns the prefixed form, for example "user_abc-123", or "" for the zero ID.
 func (id ID[T]) String() string {

@@ -31,7 +31,7 @@ func ExampleParse() {
 	fmt.Println(err)
 	// Output:
 	// abc-123
-	// trogonobjectid: invalid user value "order_abc-123": invalid format
+	// trogonobjectid: invalid user value "order_abc-123": invalid format: want prefix ["user_"]
 }
 
 func ExampleID_EncodeSpanner() {
