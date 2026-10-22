@@ -22,7 +22,7 @@ func (invoiceType) Definition() trogonobjectid.Definition {
 		ObjectType:    "inv",
 		StorageFormat: trogonobjectid.FormatDropPrefix,
 		JSONFormat:    trogonobjectid.FormatDropPrefix,
-		Normalize:     trogonobjectid.NormalizeUUID,
+		Validate:      trogonobjectid.ValidateUUID,
 		Generate:      trogonobjectid.GenerateUUIDv7,
 	}
 }
@@ -75,8 +75,8 @@ Package `objectidproto` reads `object_type` and `separator` from the `trogon.obj
 
 ```go
 var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
-	Normalize: trogonobjectid.NormalizeUUID,
-	Generate:  trogonobjectid.GenerateUUIDv7,
+	Validate: trogonobjectid.ValidateUUID,
+	Generate: trogonobjectid.GenerateUUIDv7,
 })
 
 type ticketType struct{}
@@ -94,8 +94,7 @@ The package caches each type's definition, so `Definition` must always return th
 | `Separator` | `DefaultSeparator` (`"_"`) | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
-| `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`. `NormalizeUUID` gives lowercase hyphenated UUIDs and also rejects non-UUIDs, so a type that sets it needs no `ValidateUUID`. The Elixir package has no counterpart and keeps UUIDs as given |
-| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
+| `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function. `ValidateUUID` accepts only the lowercase hyphenated form |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
 
 ### Check definitions in a test
@@ -127,6 +126,6 @@ A value without one of the type's prefixes fails with a `*WrongPrefixError`, whi
 
 `LogValue` exists because `slog.JSONHandler` otherwise calls `MarshalJSON`, which logs the bare value when `JSONFormat` is `FormatDropPrefix`. `MarshalText` always uses the full form because JSON map keys and flag values must parse back without other context.
 
-Decoders accept only the form that the matching encoder emits, apart from what `Normalize` rewrites, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
 
 The Spanner methods implement `spanner.Encoder` and `spanner.Decoder` by method set, so the package does not import the Spanner client.
