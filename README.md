@@ -98,6 +98,7 @@ The package caches each type's definition, so `Definition` must always return th
 | `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`; use `NormalizeUUID` for lowercase hyphenated UUIDs |
 | `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
+| `Aliases` | none | Earlier object types that parsing still accepts. Encoders always emit `ObjectType`, so a prefix can be renamed without breaking stored or sent values |
 
 ### Check definitions in a test
 

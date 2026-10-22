@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"reflect"
 	"regexp"
+	"slices"
 	"strings"
 	"sync"
 
@@ -52,6 +53,9 @@ type Definition struct {
 	Validate func(id string) error
 	// Generate returns a new bare value for Generate. Nil makes Generate fail.
 	Generate func() (string, error)
+	// Aliases are earlier object types that parsing still accepts. Every encoder emits
+	// ObjectType, so stored and sent values move to the new prefix as they are rewritten.
+	Aliases []ObjectType
 }
 
 // Definer is implemented by the marker type that names an object ID type.
@@ -81,7 +85,8 @@ type ID[T Definer] struct {
 
 type spec struct {
 	Definition
-	prefix string
+	prefix        string
+	aliasPrefixes []string
 }
 
 type cachedSpec struct {
@@ -117,7 +122,22 @@ func newSpec[T Definer]() (spec, error) {
 	if def.Separator == "" {
 		def.Separator = DefaultSeparator
 	}
-	return spec{Definition: def, prefix: string(def.ObjectType) + string(def.Separator)}, nil
+	s := spec{Definition: def, prefix: string(def.ObjectType) + string(def.Separator)}
+	for _, alias := range def.Aliases {
+		if alias == def.ObjectType {
+			return spec{}, fmt.Errorf("%w: alias %q for %T is the object type itself", ErrInvalidDefinition, alias, marker)
+		}
+		if !objectTypePattern.MatchString(string(alias)) {
+			return spec{}, fmt.Errorf("%w: alias %q for %T is not lowercase snake_case of at most 63 characters",
+				ErrInvalidDefinition, alias, marker)
+		}
+		aliasPrefix := string(alias) + string(def.Separator)
+		if slices.Contains(s.aliasPrefixes, aliasPrefix) {
+			return spec{}, fmt.Errorf("%w: duplicate alias %q for %T", ErrInvalidDefinition, alias, marker)
+		}
+		s.aliasPrefixes = append(s.aliasPrefixes, aliasPrefix)
+	}
+	return s, nil
 }
 
 func (s spec) build(id string) (string, error) {
@@ -141,6 +161,12 @@ func (s spec) build(id string) (string, error) {
 
 func (s spec) parse(full string) (string, error) {
 	bare, ok := strings.CutPrefix(full, s.prefix)
+	for _, aliasPrefix := range s.aliasPrefixes {
+		if ok {
+			break
+		}
+		bare, ok = strings.CutPrefix(full, aliasPrefix)
+	}
 	if !ok {
 		return "", &ValidationError{ObjectType: s.ObjectType, Value: full, Err: s.prefixError(full)}
 	}

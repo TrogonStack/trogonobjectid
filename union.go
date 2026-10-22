@@ -22,6 +22,7 @@ type Member interface {
 type MemberType struct {
 	objectType ObjectType
 	prefix     string
+	prefixes   []string
 	err        error
 	parse      func(s string) (Member, error)
 	holds      func(m Member) bool
@@ -33,6 +34,7 @@ func TypeOf[T Definer]() MemberType {
 	return MemberType{
 		objectType: s.ObjectType,
 		prefix:     s.prefix,
+		prefixes:   append([]string{s.prefix}, s.aliasPrefixes...),
 		err:        err,
 		parse:      func(str string) (Member, error) { return Parse[T](str) },
 		holds:      func(m Member) bool { _, ok := m.(ID[T]); return ok },
@@ -67,6 +69,13 @@ type Union[U UnionDefiner] struct {
 type unionSpec struct {
 	name    ObjectType
 	members []MemberType
+	// entries pairs every member prefix, aliases included, with its member, longest first.
+	entries []unionEntry
+}
+
+type unionEntry struct {
+	prefix string
+	member MemberType
 }
 
 type cachedUnionSpec struct {
@@ -96,21 +105,24 @@ func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 
 	names := make([]string, 0, len(members))
 	seen := make(map[string]bool, len(members))
+	var entries []unionEntry
 	for _, m := range members {
 		if m.err != nil {
 			return unionSpec{}, fmt.Errorf("%T: %w", marker, m.err)
 		}
-		if seen[m.prefix] {
-			return unionSpec{}, fmt.Errorf("%w: %T has duplicate prefix %q", ErrInvalidDefinition, marker, m.prefix)
+		for _, prefix := range m.prefixes {
+			if seen[prefix] {
+				return unionSpec{}, fmt.Errorf("%w: %T has duplicate prefix %q", ErrInvalidDefinition, marker, prefix)
+			}
+			seen[prefix] = true
+			entries = append(entries, unionEntry{prefix: prefix, member: m})
 		}
-		seen[m.prefix] = true
 		names = append(names, string(m.objectType))
 	}
 
 	// Longest prefix first, so "acme_admin_" wins over "acme_" for "acme_admin_xyz".
-	sorted := append([]MemberType(nil), members...)
-	sort.SliceStable(sorted, func(i, j int) bool { return len(sorted[i].prefix) > len(sorted[j].prefix) })
-	return unionSpec{name: ObjectType(strings.Join(names, "|")), members: sorted}, nil
+	sort.SliceStable(entries, func(i, j int) bool { return len(entries[i].prefix) > len(entries[j].prefix) })
+	return unionSpec{name: ObjectType(strings.Join(names, "|")), members: members, entries: entries}, nil
 }
 
 // CheckUnion reports whether U's member list is usable: at least one member, valid
@@ -153,9 +165,9 @@ func ParseUnion[U UnionDefiner](str string) (Union[U], error) {
 	if err != nil {
 		return Union[U]{}, err
 	}
-	for _, mt := range s.members {
-		if strings.HasPrefix(str, mt.prefix) {
-			m, err := mt.parse(str)
+	for _, e := range s.entries {
+		if strings.HasPrefix(str, e.prefix) {
+			m, err := e.member.parse(str)
 			if err != nil {
 				return Union[U]{}, err
 			}
