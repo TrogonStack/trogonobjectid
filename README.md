@@ -117,6 +117,16 @@ A value with another type's prefix fails with a `*WrongPrefixError`, which names
 
 `FromUUID[T](u)` builds an ID from a `uuid.UUID`, and `id.UUID()` returns the bare value as a `uuid.UUID`. `Scan` and `DecodeSpanner` also accept `uuid.UUID` and `[16]byte`, for drivers and columns that carry native UUIDs. These need `StorageFormat: FormatDropPrefix`, because a native UUID has no prefix.
 
+### Deterministic IDs in tests
+
+Package `objectidtest` gives a test the same valid ID for the same seed on every run:
+
+```go
+buyer := objectidtest.FromSeed[fanType]("buyer") // fan_<UUIDv5 of "buyer">
+```
+
+`FromSeedIn` takes another UUIDv5 namespace, to match IDs that another service's test helpers derive.
+
 ## Emitted forms
 
 | Method | Emits | Controlled by |
