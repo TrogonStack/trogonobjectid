@@ -45,3 +45,13 @@ func GenerateUUIDv4() (string, error) {
 	}
 	return u.String(), nil
 }
+
+// NormalizeUUID returns the canonical lowercase hyphenated form of any UUID form that
+// uuid.Parse accepts, so upper-case and URN inputs name the same ID.
+func NormalizeUUID(id string) (string, error) {
+	u, err := uuid.Parse(id)
+	if err != nil {
+		return "", ErrInvalidUUID
+	}
+	return u.String(), nil
+}

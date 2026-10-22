@@ -31,6 +31,9 @@ type Definition struct {
 	StorageFormat Format
 	// JSONFormat controls MarshalJSON and UnmarshalJSON.
 	JSONFormat Format
+	// Normalize rewrites the bare value into its canonical form before Validate runs, so
+	// equal IDs compare equal whatever form they arrived in. Nil keeps the value as given.
+	Normalize func(id string) (string, error)
 	// Validate checks the bare value. Nil accepts any non-empty value.
 	Validate func(id string) error
 	// Generate returns a new bare value for Generate. Nil makes Generate fail.
@@ -78,16 +81,23 @@ func specFor[T Definer]() (spec, error) {
 	return spec{Definition: def, prefix: def.ObjectType + def.Separator}, nil
 }
 
-func (s spec) build(id string) error {
+func (s spec) build(id string) (string, error) {
 	if id == "" {
-		return &ValidationError{ObjectType: s.ObjectType, Value: id, Err: ErrEmptyValue}
+		return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: ErrEmptyValue}
+	}
+	if s.Normalize != nil {
+		normalized, err := s.Normalize(id)
+		if err != nil {
+			return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
+		}
+		id = normalized
 	}
 	if s.Validate != nil {
 		if err := s.Validate(id); err != nil {
-			return &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
+			return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
 		}
 	}
-	return nil
+	return id, nil
 }
 
 func (s spec) parse(full string) (string, error) {
@@ -95,18 +105,12 @@ func (s spec) parse(full string) (string, error) {
 	if !ok || bare == "" {
 		return "", &ValidationError{ObjectType: s.ObjectType, Value: full, Err: ErrInvalidFormat}
 	}
-	if err := s.build(bare); err != nil {
-		return "", err
-	}
-	return bare, nil
+	return s.build(bare)
 }
 
 func (s spec) decode(format Format, value string) (string, error) {
 	if format == FormatDropPrefix {
-		if err := s.build(value); err != nil {
-			return "", err
-		}
-		return value, nil
+		return s.build(value)
 	}
 	return s.parse(value)
 }
@@ -124,10 +128,11 @@ func New[T Definer](id string) (ID[T], error) {
 	if err != nil {
 		return ID[T]{}, err
 	}
-	if err := s.build(id); err != nil {
+	bare, err := s.build(id)
+	if err != nil {
 		return ID[T]{}, err
 	}
-	return ID[T]{id: id}, nil
+	return ID[T]{id: bare}, nil
 }
 
 // MustNew is like New but panics on error. Use it for constants and tests.
@@ -174,10 +179,11 @@ func Generate[T Definer]() (ID[T], error) {
 	if err != nil {
 		return ID[T]{}, fmt.Errorf("trogonobjectid: generate %s: %w", s.ObjectType, err)
 	}
-	if err := s.build(id); err != nil {
+	bare, err := s.build(id)
+	if err != nil {
 		return ID[T]{}, err
 	}
-	return ID[T]{id: id}, nil
+	return ID[T]{id: bare}, nil
 }
 
 // FromStorage returns the ID for a value in the type's StorageFormat.
@@ -319,3 +325,16 @@ func (id *ID[T]) Scan(src any) error {
 	*id = v
 	return nil
 }
+
+// EncodeSpanner implements spanner.Encoder with the type's StorageFormat. The zero ID
+// is a NULL STRING; an untyped nil would leave Spanner without a column type.
+func (id ID[T]) EncodeSpanner() (any, error) {
+	if id.IsZero() {
+		return (*string)(nil), nil
+	}
+	return id.Storage(), nil
+}
+
+// DecodeSpanner implements spanner.Decoder for STRING values in the type's StorageFormat.
+// NULL gives the zero ID.
+func (id *ID[T]) DecodeSpanner(val any) error { return id.Scan(val) }

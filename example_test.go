@@ -33,3 +33,21 @@ func ExampleParse() {
 	// abc-123
 	// trogonobjectid: invalid user value "order_abc-123": invalid format
 }
+
+func ExampleNormalizeUUID() {
+	id := trogonobjectid.MustNew[canonicalType]("0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F")
+	fmt.Println(id)
+	// Output:
+	// inv_0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f
+}
+
+func ExampleID_EncodeSpanner() {
+	value, _ := trogonobjectid.MustNew[invoiceType]("0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f").EncodeSpanner()
+	fmt.Println(value)
+
+	null, _ := trogonobjectid.ID[invoiceType]{}.EncodeSpanner()
+	fmt.Println(null == (*string)(nil))
+	// Output:
+	// 0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f
+	// true
+}

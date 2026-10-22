@@ -95,6 +95,7 @@ Keep the result in a package-level variable, because `Definition` methods run on
 | `Separator` | `"_"` | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
+| `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`; use `NormalizeUUID` for lowercase hyphenated UUIDs |
 | `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
 
@@ -108,7 +109,12 @@ Keep the result in a package-level variable, because `Definition` methods run on
 | `MarshalJSON`, `UnmarshalJSON` | Full or bare | `JSONFormat` |
 | `Storage`, `FromStorage` | Full or bare | `StorageFormat` |
 | `Value`, `Scan` (`database/sql`) | Full or bare | `StorageFormat` |
+| `EncodeSpanner`, `DecodeSpanner` (Cloud Spanner) | Full or bare | `StorageFormat` |
 
 `LogValue` exists because `slog.JSONHandler` otherwise calls `MarshalJSON`, which logs the bare value when `JSONFormat` is `FormatDropPrefix`. `MarshalText` always uses the full form because JSON map keys and flag values must parse back without other context.
 
-Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+
+The Spanner methods implement `spanner.Encoder` and `spanner.Decoder` by method set, so the package does not import the Spanner client.
+
+`Normalize` has no counterpart in the Elixir package, which keeps UUIDs as given. Without it, `inv_0199E3A1-...` and `inv_0199e3a1-...` are two different IDs.
