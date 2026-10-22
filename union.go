@@ -65,7 +65,7 @@ type Union[U UnionDefiner] struct {
 }
 
 type unionSpec struct {
-	name    ObjectType
+	name    string
 	members []MemberType
 }
 
@@ -98,7 +98,7 @@ func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 	// Longest prefix first, so "acme_admin_" wins over "acme_" for "acme_admin_xyz".
 	sorted := append([]MemberType(nil), members...)
 	sort.SliceStable(sorted, func(i, j int) bool { return len(sorted[i].prefix) > len(sorted[j].prefix) })
-	return unionSpec{name: ObjectType(strings.Join(names, "|")), members: sorted}, nil
+	return unionSpec{name: strings.Join(names, "|"), members: sorted}, nil
 }
 
 // CheckUnion reports whether U's member list is usable: at least one member, valid
@@ -150,7 +150,11 @@ func ParseUnion[U UnionDefiner](str string) (Union[U], error) {
 			return Union[U]{member: m}, nil
 		}
 	}
-	return Union[U]{}, &ValidationError{ObjectType: s.name, Value: str, Err: ErrInvalidFormat}
+	prefixes := make([]string, len(s.members))
+	for i, mt := range s.members {
+		prefixes[i] = mt.prefix
+	}
+	return Union[U]{}, &ValidationError{ObjectType: s.name, Value: str, Err: &WrongPrefixError{Want: prefixes}}
 }
 
 // MustParseUnion is like ParseUnion but panics on error. Use it for constants and tests.

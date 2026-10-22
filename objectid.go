@@ -3,10 +3,10 @@ package trogonobjectid
 import (
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log/slog"
 	"reflect"
-	"regexp"
 	"strings"
 	"sync"
 )
@@ -21,7 +21,25 @@ type Separator string
 // DefaultSeparator is the separator used when Definition.Separator is empty.
 const DefaultSeparator Separator = "_"
 
-var objectTypePattern = regexp.MustCompile(`^[a-z]([a-z_]{0,61}[a-z])?$`)
+// validate applies the TypeID prefix rule: lowercase letters and underscores, at most
+// 63 characters, starting and ending with a letter.
+func (t ObjectType) validate() error {
+	if t == "" {
+		return errors.New("empty object type")
+	}
+	if len(t) > 63 {
+		return fmt.Errorf("object type %q is longer than 63 characters", t)
+	}
+	if t[0] == '_' || t[len(t)-1] == '_' {
+		return fmt.Errorf("object type %q starts or ends with an underscore", t)
+	}
+	for i := 0; i < len(t); i++ {
+		if c := t[i]; (c < 'a' || c > 'z') && c != '_' {
+			return fmt.Errorf("object type %q is not lowercase snake_case", t)
+		}
+	}
+	return nil
+}
 
 // Format selects whether an encoding keeps the prefix.
 type Format int
@@ -93,12 +111,8 @@ func specFor[T Definer]() (*spec, error) {
 func newSpec[T Definer]() (spec, error) {
 	var marker T
 	def := marker.Definition()
-	if def.ObjectType == "" {
-		return spec{}, fmt.Errorf("%w: empty object type for %T", ErrInvalidDefinition, marker)
-	}
-	if !objectTypePattern.MatchString(string(def.ObjectType)) {
-		return spec{}, fmt.Errorf("%w: object type %q for %T is not lowercase snake_case of at most 63 characters",
-			ErrInvalidDefinition, def.ObjectType, marker)
+	if err := def.ObjectType.validate(); err != nil {
+		return spec{}, fmt.Errorf("%w: %T: %w", ErrInvalidDefinition, marker, err)
 	}
 	if def.Separator == "" {
 		def.Separator = DefaultSeparator
@@ -108,18 +122,18 @@ func newSpec[T Definer]() (spec, error) {
 
 func (s *spec) build(id string) (string, error) {
 	if id == "" {
-		return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: ErrEmptyValue}
+		return "", &ValidationError{ObjectType: string(s.ObjectType), Value: id, Err: ErrEmptyValue}
 	}
 	if s.Normalize != nil {
 		normalized, err := s.Normalize(id)
 		if err != nil {
-			return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
+			return "", &ValidationError{ObjectType: string(s.ObjectType), Value: id, Err: err}
 		}
 		id = normalized
 	}
 	if s.Validate != nil {
 		if err := s.Validate(id); err != nil {
-			return "", &ValidationError{ObjectType: s.ObjectType, Value: id, Err: err}
+			return "", &ValidationError{ObjectType: string(s.ObjectType), Value: id, Err: err}
 		}
 	}
 	return id, nil
@@ -128,22 +142,12 @@ func (s *spec) build(id string) (string, error) {
 func (s *spec) parse(full string) (string, error) {
 	bare, ok := strings.CutPrefix(full, s.prefix)
 	if !ok {
-		return "", &ValidationError{ObjectType: s.ObjectType, Value: full, Err: s.prefixError(full)}
+		return "", &ValidationError{ObjectType: string(s.ObjectType), Value: full, Err: &WrongPrefixError{Want: []string{s.prefix}}}
 	}
 	if bare == "" {
-		return "", &ValidationError{ObjectType: s.ObjectType, Value: full, Err: ErrInvalidFormat}
+		return "", &ValidationError{ObjectType: string(s.ObjectType), Value: full, Err: ErrInvalidFormat}
 	}
 	return s.build(bare)
-}
-
-// prefixError names the prefix that full carries when it has one, so a mixed-up ID
-// type reads as such instead of as a malformed value.
-func (s *spec) prefixError(full string) error {
-	i := strings.Index(full, string(s.Separator))
-	if i <= 0 {
-		return ErrInvalidFormat
-	}
-	return &WrongPrefixError{Got: full[:i+len(s.Separator)], Want: s.prefix}
 }
 
 func (s *spec) decode(format Format, value string) (string, error) {

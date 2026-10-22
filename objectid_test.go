@@ -99,7 +99,7 @@ func TestNew(t *testing.T) {
 		_, err := trogonobjectid.New[invoiceType]("nope")
 		var verr *trogonobjectid.ValidationError
 		require.ErrorAs(t, err, &verr)
-		assert.Equal(t, trogonobjectid.ObjectType("inv"), verr.ObjectType)
+		assert.Equal(t, "inv", verr.ObjectType)
 		assert.Equal(t, "nope", verr.Value)
 		assert.EqualError(t, err, `trogonobjectid: invalid inv value "nope": invalid uuid`)
 	})

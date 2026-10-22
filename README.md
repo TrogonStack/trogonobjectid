@@ -109,7 +109,7 @@ func TestIDDefinitions(t *testing.T) {
 }
 ```
 
-A value with another type's prefix fails with a `*WrongPrefixError`, which names the prefix it got and the one it expected. It unwraps to `ErrInvalidFormat`.
+A value without one of the type's prefixes fails with a `*WrongPrefixError`, which lists the prefixes the type accepts. It unwraps to `ErrInvalidFormat`, and `ValidationError.Value` holds the input.
 
 ## Emitted forms
 
