@@ -15,11 +15,11 @@ func FromUUID[T Definer](u uuid.UUID) (ID[T], error) {
 // parse Bare themselves. The zero ID fails with ErrEmptyValue.
 func (id ID[T]) UUID() (uuid.UUID, error) {
 	if id.IsZero() {
-		return uuid.Nil, &ValidationError{ObjectType: id.ObjectType(), Err: ErrEmptyValue}
+		return uuid.Nil, &ValidationError{ObjectTypes: mustSpec[T]().objectTypes, Err: ErrEmptyValue}
 	}
 	u, err := uuid.Parse(id.id)
 	if err != nil {
-		return uuid.Nil, &ValidationError{ObjectType: id.ObjectType(), Value: id.id, Err: fmt.Errorf("%w: %w", ErrInvalidUUID, err)}
+		return uuid.Nil, &ValidationError{ObjectTypes: mustSpec[T]().objectTypes, Value: id.id, Err: fmt.Errorf("%w: %w", ErrInvalidUUID, err)}
 	}
 	return u, nil
 }

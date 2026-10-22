@@ -263,3 +263,19 @@ func TestUnionAs(t *testing.T) {
 	_, ok = trogonobjectid.UnionAs[userType](trogonobjectid.Union[principalUnion]{})
 	assert.False(t, ok)
 }
+
+func TestUnionSpanner(t *testing.T) {
+	want := trogonobjectid.MustNewUnion[principalUnion](trogonobjectid.MustNew[userType]("abc-123"))
+
+	encoded, err := want.EncodeSpanner()
+	require.NoError(t, err)
+	assert.Equal(t, "user_abc-123", encoded)
+
+	var got PrincipalID
+	require.NoError(t, got.DecodeSpanner(encoded))
+	assert.Equal(t, want, got)
+
+	zero, err := PrincipalID{}.EncodeSpanner()
+	require.NoError(t, err)
+	assert.Equal(t, (*string)(nil), zero)
+}
