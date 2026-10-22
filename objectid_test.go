@@ -460,3 +460,44 @@ func TestSpanner(t *testing.T) {
 		require.ErrorIs(t, got.DecodeSpanner("inv_"+invoiceUUID), trogonobjectid.ErrInvalidUUID)
 	})
 }
+
+func TestTypeLevelAccessors(t *testing.T) {
+	assert.Equal(t, "inv", trogonobjectid.ObjectTypeOf[invoiceType]())
+	assert.Equal(t, "inv_", trogonobjectid.PrefixOf[invoiceType]())
+	assert.Equal(t, "order#", trogonobjectid.PrefixOf[orderType]())
+	assert.Panics(t, func() { trogonobjectid.PrefixOf[badType]() })
+}
+
+var definitionCalls int
+
+type countedType struct{}
+
+func (countedType) Definition() trogonobjectid.Definition {
+	definitionCalls++
+	return trogonobjectid.Definition{ObjectType: "cnt"}
+}
+
+func TestDefinitionRunsOnce(t *testing.T) {
+	id := trogonobjectid.MustNew[countedType]("a")
+	for range 3 {
+		_ = id.String()
+		_, _ = trogonobjectid.Parse[countedType]("cnt_a")
+	}
+	assert.Equal(t, 1, definitionCalls)
+}
+
+func BenchmarkString(b *testing.B) {
+	id := trogonobjectid.MustNew[invoiceType](invoiceUUID)
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = id.String()
+	}
+}
+
+func BenchmarkParse(b *testing.B) {
+	full := "inv_" + invoiceUUID
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = trogonobjectid.Parse[invoiceType](full)
+	}
+}

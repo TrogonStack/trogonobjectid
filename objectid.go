@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"reflect"
 	"strings"
+	"sync"
 )
 
 // DefaultSeparator is the separator used when Definition.Separator is empty.
@@ -41,7 +43,8 @@ type Definition struct {
 }
 
 // Definer is implemented by the marker type that names an object ID type.
-// Implement it on an empty struct with a value receiver:
+// The result of Definition is cached per type, so it must always return the same
+// value. Implement it on an empty struct with a value receiver:
 //
 //	type userType struct{}
 //
@@ -69,7 +72,27 @@ type spec struct {
 	prefix string
 }
 
+type cachedSpec struct {
+	spec spec
+	err  error
+}
+
+// specs caches each marker type's spec, keyed by reflect.Type, so encoding an ID does
+// not rebuild the prefix on every call.
+var specs sync.Map
+
 func specFor[T Definer]() (spec, error) {
+	key := reflect.TypeFor[T]()
+	if cached, ok := specs.Load(key); ok {
+		c := cached.(cachedSpec)
+		return c.spec, c.err
+	}
+	s, err := newSpec[T]()
+	specs.Store(key, cachedSpec{spec: s, err: err})
+	return s, err
+}
+
+func newSpec[T Definer]() (spec, error) {
 	var marker T
 	def := marker.Definition()
 	if def.ObjectType == "" {
@@ -208,6 +231,14 @@ func mustSpec[T Definer]() spec {
 	}
 	return s
 }
+
+// ObjectTypeOf returns T's object type, for example "user". It panics if T's
+// Definition is invalid.
+func ObjectTypeOf[T Definer]() string { return mustSpec[T]().ObjectType }
+
+// PrefixOf returns T's object type and separator, for example "user_". It panics if
+// T's Definition is invalid.
+func PrefixOf[T Definer]() string { return mustSpec[T]().prefix }
 
 // IsZero reports whether id is the zero (absent) ID.
 func (id ID[T]) IsZero() bool { return id.id == "" }

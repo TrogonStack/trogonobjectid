@@ -122,3 +122,34 @@ func TestDefinitionWithID(t *testing.T) {
 	_, err = trogonobjectid.Parse[ticketType]("tkt_abc")
 	require.ErrorIs(t, err, trogonobjectid.ErrInvalidInteger)
 }
+
+func TestDefinitionOptions(t *testing.T) {
+	enum := objectTypeEnum(t)
+
+	def, err := objectidproto.Definition(enum.New(valueTicket),
+		objectidproto.WithStorageFormat(trogonobjectid.FormatDropPrefix),
+		objectidproto.WithJSONFormat(trogonobjectid.FormatDropPrefix),
+		objectidproto.WithNormalize(trogonobjectid.NormalizeUUID),
+		objectidproto.WithValidate(trogonobjectid.ValidateUUID),
+		objectidproto.WithGenerate(trogonobjectid.GenerateUUIDv7),
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, "tkt", def.ObjectType)
+	assert.Equal(t, trogonobjectid.FormatDropPrefix, def.StorageFormat)
+	assert.Equal(t, trogonobjectid.FormatDropPrefix, def.JSONFormat)
+	normalized, err := def.Normalize("0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F")
+	require.NoError(t, err)
+	assert.Equal(t, "0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f", normalized)
+	require.ErrorIs(t, def.Validate("nope"), trogonobjectid.ErrInvalidUUID)
+	generated, err := def.Generate()
+	require.NoError(t, err)
+	require.NoError(t, trogonobjectid.ValidateUUID(generated))
+
+	t.Run("options do not change the annotation fields", func(t *testing.T) {
+		def, err := objectidproto.Definition(enum.New(valueOrder), objectidproto.WithStorageFormat(trogonobjectid.FormatDropPrefix))
+		require.NoError(t, err)
+		assert.Equal(t, "order", def.ObjectType)
+		assert.Equal(t, "#", def.Separator)
+	})
+}
