@@ -3,6 +3,7 @@
   "release-type": "go",
   "include-v-in-tag": true,
   "include-component-in-tag": false,
+  "bump-minor-pre-major": true,
   "signoff": "SHT Bot <61149376+sht-bot@users.noreply.github.com>",
   "changelog-sections": [
     {
