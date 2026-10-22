@@ -7,13 +7,12 @@
 //	}
 //
 // The object type and separator then live in one place for every language that uses
-// the proto. Options set the other fields:
+// the proto, and the other fields come from a base Definition:
 //
-//	var ticketDefinition = objectidproto.MustDefinition(
-//		acmev1.ObjectType_OBJECT_TYPE_TICKET,
-//		objectidproto.WithStorageFormat(trogonobjectid.FormatDropPrefix),
-//		objectidproto.WithValidate(trogonobjectid.ValidateUUID),
-//	)
+//	var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
+//		StorageFormat: trogonobjectid.FormatDropPrefix,
+//		Normalize:     trogonobjectid.NormalizeUUID,
+//	})
 //
 //	type ticketType struct{}
 //
@@ -33,9 +32,10 @@ import (
 )
 
 // Definition returns a Definition with ObjectType and Separator read from the enum
-// value's annotation. An absent separator gives trogonobjectid.DefaultSeparator.
-// Options set the fields that the annotation does not carry.
-func Definition(value protoreflect.Enum, opts ...Option) (trogonobjectid.Definition, error) {
+// value's annotation, over base. An absent separator gives
+// trogonobjectid.DefaultSeparator. base carries the fields the annotation does not, so
+// a new Definition field needs no change here.
+func Definition(value protoreflect.Enum, base trogonobjectid.Definition) (trogonobjectid.Definition, error) {
 	desc := value.Descriptor().Values().ByNumber(value.Number())
 	if desc == nil {
 		return trogonobjectid.Definition{}, fmt.Errorf("%w: %s has no value %d",
@@ -58,46 +58,16 @@ func Definition(value protoreflect.Enum, opts ...Option) (trogonobjectid.Definit
 	if ext.Separator != nil {
 		separator = trogonobjectid.Separator(ext.GetSeparator())
 	}
-	def := trogonobjectid.Definition{ObjectType: trogonobjectid.ObjectType(ext.GetObjectType()), Separator: separator}
-	for _, opt := range opts {
-		opt(&def)
-	}
-	return def, nil
+	base.ObjectType = trogonobjectid.ObjectType(ext.GetObjectType())
+	base.Separator = separator
+	return base, nil
 }
 
 // MustDefinition is like Definition but panics on error. Use it in package-level variables.
-func MustDefinition(value protoreflect.Enum, opts ...Option) trogonobjectid.Definition {
-	def, err := Definition(value, opts...)
+func MustDefinition(value protoreflect.Enum, base trogonobjectid.Definition) trogonobjectid.Definition {
+	def, err := Definition(value, base)
 	if err != nil {
 		panic(err)
 	}
 	return def
-}
-
-// Option sets a Definition field that the proto annotation does not carry.
-type Option func(*trogonobjectid.Definition)
-
-// WithStorageFormat sets Definition.StorageFormat.
-func WithStorageFormat(format trogonobjectid.Format) Option {
-	return func(d *trogonobjectid.Definition) { d.StorageFormat = format }
-}
-
-// WithJSONFormat sets Definition.JSONFormat.
-func WithJSONFormat(format trogonobjectid.Format) Option {
-	return func(d *trogonobjectid.Definition) { d.JSONFormat = format }
-}
-
-// WithNormalize sets Definition.Normalize.
-func WithNormalize(normalize func(id string) (string, error)) Option {
-	return func(d *trogonobjectid.Definition) { d.Normalize = normalize }
-}
-
-// WithValidate sets Definition.Validate.
-func WithValidate(validate func(id string) error) Option {
-	return func(d *trogonobjectid.Definition) { d.Validate = validate }
-}
-
-// WithGenerate sets Definition.Generate.
-func WithGenerate(generate func() (string, error)) Option {
-	return func(d *trogonobjectid.Definition) { d.Generate = generate }
 }
