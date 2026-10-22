@@ -25,7 +25,7 @@ var (
 // ValidationError reports a value that is not a valid ID of ObjectType.
 // Err is ErrEmptyValue, ErrInvalidFormat, or the error from Definition.Validate.
 type ValidationError struct {
-	ObjectType string
+	ObjectType ObjectType
 	Value      string
 	Err        error
 }
@@ -35,3 +35,16 @@ func (e *ValidationError) Error() string {
 }
 
 func (e *ValidationError) Unwrap() error { return e.Err }
+
+// WrongPrefixError reports a value that carries another type's prefix, for example an
+// order ID where an invoice ID is expected. It unwraps to ErrInvalidFormat.
+type WrongPrefixError struct {
+	Got  string
+	Want string
+}
+
+func (e *WrongPrefixError) Error() string {
+	return fmt.Sprintf("%v: prefix %q, want %q", ErrInvalidFormat, e.Got, e.Want)
+}
+
+func (e *WrongPrefixError) Unwrap() error { return ErrInvalidFormat }

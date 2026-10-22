@@ -20,7 +20,7 @@ type Member interface {
 
 // MemberType describes one ID type that a Union accepts. Make it with MemberOf.
 type MemberType struct {
-	objectType string
+	objectType ObjectType
 	prefix     string
 	err        error
 	parse      func(s string) (Member, error)
@@ -65,7 +65,7 @@ type Union[U UnionDefiner] struct {
 }
 
 type unionSpec struct {
-	name    string
+	name    ObjectType
 	members []MemberType
 }
 
@@ -104,13 +104,20 @@ func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
 			return unionSpec{}, fmt.Errorf("%w: %T has duplicate prefix %q", ErrInvalidDefinition, marker, m.prefix)
 		}
 		seen[m.prefix] = true
-		names = append(names, m.objectType)
+		names = append(names, string(m.objectType))
 	}
 
 	// Longest prefix first, so "acme_admin_" wins over "acme_" for "acme_admin_xyz".
 	sorted := append([]MemberType(nil), members...)
 	sort.SliceStable(sorted, func(i, j int) bool { return len(sorted[i].prefix) > len(sorted[j].prefix) })
-	return unionSpec{name: strings.Join(names, "|"), members: sorted}, nil
+	return unionSpec{name: ObjectType(strings.Join(names, "|")), members: sorted}, nil
+}
+
+// CheckUnion reports whether U's member list is usable: at least one member, valid
+// member definitions and no duplicate prefixes.
+func CheckUnion[U UnionDefiner]() error {
+	_, err := unionSpecFor[U]()
+	return err
 }
 
 // NewUnion wraps m, which must be a non-zero ID of one of the union's member types.

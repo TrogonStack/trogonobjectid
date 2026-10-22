@@ -56,9 +56,9 @@ func Definition(value protoreflect.Enum, opts ...Option) (trogonobjectid.Definit
 
 	separator := trogonobjectid.DefaultSeparator
 	if ext.Separator != nil {
-		separator = ext.GetSeparator()
+		separator = trogonobjectid.Separator(ext.GetSeparator())
 	}
-	def := trogonobjectid.Definition{ObjectType: ext.GetObjectType(), Separator: separator}
+	def := trogonobjectid.Definition{ObjectType: trogonobjectid.ObjectType(ext.GetObjectType()), Separator: separator}
 	for _, opt := range opts {
 		opt(&def)
 	}

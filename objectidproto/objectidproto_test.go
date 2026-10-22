@@ -135,7 +135,7 @@ func TestDefinitionOptions(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Equal(t, "tkt", def.ObjectType)
+	assert.Equal(t, trogonobjectid.ObjectType("tkt"), def.ObjectType)
 	assert.Equal(t, trogonobjectid.FormatDropPrefix, def.StorageFormat)
 	assert.Equal(t, trogonobjectid.FormatDropPrefix, def.JSONFormat)
 	normalized, err := def.Normalize("0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F")
@@ -149,7 +149,7 @@ func TestDefinitionOptions(t *testing.T) {
 	t.Run("options do not change the annotation fields", func(t *testing.T) {
 		def, err := objectidproto.Definition(enum.New(valueOrder), objectidproto.WithStorageFormat(trogonobjectid.FormatDropPrefix))
 		require.NoError(t, err)
-		assert.Equal(t, "order", def.ObjectType)
-		assert.Equal(t, "#", def.Separator)
+		assert.Equal(t, trogonobjectid.ObjectType("order"), def.ObjectType)
+		assert.Equal(t, trogonobjectid.Separator("#"), def.Separator)
 	})
 }
