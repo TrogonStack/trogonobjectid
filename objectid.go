@@ -66,9 +66,6 @@ type Definition struct {
 	StorageFormat Format
 	// JSONFormat controls MarshalJSON and UnmarshalJSON.
 	JSONFormat Format
-	// Normalize rewrites the bare value into its canonical form before Validate runs, so
-	// equal IDs compare equal whatever form they arrived in. Nil keeps the value as given.
-	Normalize func(id string) (string, error)
 	// Validate checks the bare value. Nil accepts any non-empty value.
 	Validate func(id string) error
 	// Generate returns a new bare value for Generate. Nil makes Generate fail.
@@ -147,23 +144,16 @@ func newSpec[T Definer]() (spec, error) {
 	}, nil
 }
 
-func (s *spec) build(id string) (string, error) {
+func (s *spec) check(id string) error {
 	if id == "" {
-		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: ErrEmptyValue}
-	}
-	if s.Normalize != nil {
-		normalized, err := s.Normalize(id)
-		if err != nil {
-			return "", &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: err}
-		}
-		id = normalized
+		return &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: ErrEmptyValue}
 	}
 	if s.Validate != nil {
 		if err := s.Validate(id); err != nil {
-			return "", &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: err}
+			return &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: err}
 		}
 	}
-	return id, nil
+	return nil
 }
 
 func (s *spec) parse(full string) (string, error) {
@@ -172,7 +162,10 @@ func (s *spec) parse(full string) (string, error) {
 			if bare == "" {
 				return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: ErrInvalidFormat}
 			}
-			return s.build(bare)
+			if err := s.check(bare); err != nil {
+				return "", err
+			}
+			return bare, nil
 		}
 	}
 	return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: &WrongPrefixError{Want: s.prefixes}}
@@ -180,7 +173,10 @@ func (s *spec) parse(full string) (string, error) {
 
 func (s *spec) decode(format Format, value string) (string, error) {
 	if format == FormatDropPrefix {
-		return s.build(value)
+		if err := s.check(value); err != nil {
+			return "", err
+		}
+		return value, nil
 	}
 	return s.parse(value)
 }
@@ -198,11 +194,10 @@ func New[T Definer](id string) (ID[T], error) {
 	if err != nil {
 		return ID[T]{}, err
 	}
-	bare, err := s.build(id)
-	if err != nil {
+	if err := s.check(id); err != nil {
 		return ID[T]{}, err
 	}
-	return ID[T]{id: bare}, nil
+	return ID[T]{id: id}, nil
 }
 
 // MustNew is like New but panics on error. Use it for constants and tests.
@@ -249,11 +244,10 @@ func Generate[T Definer]() (ID[T], error) {
 	if err != nil {
 		return ID[T]{}, fmt.Errorf("trogonobjectid: generate %s: %w", s.ObjectType, err)
 	}
-	bare, err := s.build(id)
-	if err != nil {
+	if err := s.check(id); err != nil {
 		return ID[T]{}, err
 	}
-	return ID[T]{id: bare}, nil
+	return ID[T]{id: id}, nil
 }
 
 // FromStorage returns the ID for a value in the type's StorageFormat.
@@ -284,7 +278,7 @@ func mustSpec[T Definer]() *spec {
 func ObjectTypeOf[T Definer]() ObjectType { return mustSpec[T]().ObjectType }
 
 // Check reports whether T's Definition is usable: a valid object type, and a generator
-// whose values pass the type's own Normalize and Validate. Call it from a test or init,
+// whose values pass the type's own Validate. Call it from a test or init,
 // the way the Elixir package checks options at compile time.
 func Check[T Definer]() error {
 	s, err := specFor[T]()
@@ -298,7 +292,7 @@ func Check[T Definer]() error {
 	if err != nil {
 		return fmt.Errorf("%w: generate %s: %w", ErrInvalidDefinition, s.ObjectType, err)
 	}
-	if _, err := s.build(id); err != nil {
+	if err := s.check(id); err != nil {
 		return fmt.Errorf("%w: generated %s value is invalid: %w", ErrInvalidDefinition, s.ObjectType, err)
 	}
 	return nil
