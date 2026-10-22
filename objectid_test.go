@@ -437,3 +437,10 @@ func TestSpanner(t *testing.T) {
 		require.ErrorIs(t, got.DecodeSpanner("inv_"+invoiceUUID), trogonobjectid.ErrInvalidUUID)
 	})
 }
+
+func BenchmarkNormalizeUUID(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = trogonobjectid.NormalizeUUID(invoiceUUID)
+	}
+}
