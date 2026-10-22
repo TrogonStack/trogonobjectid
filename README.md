@@ -112,6 +112,10 @@ A value without one of the type's prefixes fails with a `*WrongPrefixError`, whi
 
 `ObjectType`, `Separator` and `Prefix` are named string types, so an object type, a separator and a prefix cannot be swapped by mistake. `Bare()` and the parse inputs stay `string`, because they are the wire and storage boundary.
 
+### Work with UUIDs
+
+`FromUUID[T](u)` builds an ID from a `uuid.UUID`, and `id.UUID()` returns the bare value as a `uuid.UUID`. `Scan` and `DecodeSpanner` also accept `uuid.UUID` and `[16]byte`, for drivers and columns that carry native UUIDs. These need `StorageFormat: FormatDropPrefix`, because a native UUID has no prefix.
+
 ## Emitted forms
 
 | Method | Emits | Controlled by |

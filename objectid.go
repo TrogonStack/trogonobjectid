@@ -9,6 +9,8 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+
+	"github.com/google/uuid"
 )
 
 // ObjectType names an object ID type, for example "user". It is lowercase snake_case
@@ -385,6 +387,10 @@ func (id *ID[T]) Scan(src any) error {
 		value = v
 	case []byte:
 		value = string(v)
+	case uuid.UUID:
+		value = v.String()
+	case [16]byte:
+		value = uuid.UUID(v).String()
 	default:
 		return fmt.Errorf("%w: cannot scan %T", ErrInvalidFormat, src)
 	}
