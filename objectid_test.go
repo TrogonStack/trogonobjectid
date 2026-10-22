@@ -478,3 +478,10 @@ func BenchmarkParse(b *testing.B) {
 		_, _ = trogonobjectid.Parse[invoiceType](full)
 	}
 }
+
+func BenchmarkNormalizeUUID(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = trogonobjectid.NormalizeUUID(invoiceUUID)
+	}
+}
