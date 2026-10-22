@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/TrogonStack/trogonobjectid/compare/v0.1.0...v0.2.0) (2026-10-22)
+
+
+### Features
+
+* Normalize bare values and encode IDs for Spanner ([#2](https://github.com/TrogonStack/trogonobjectid/issues/2)) ([40f3ff3](https://github.com/TrogonStack/trogonobjectid/commit/40f3ff3fadd919059d0ccc9e48f69252c4a8f795))
+
 ## 0.1.0 (2026-10-15)
 
 
