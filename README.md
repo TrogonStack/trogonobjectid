@@ -53,8 +53,8 @@ type principalUnion struct{}
 
 func (principalUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.TypeOf[userType](),
-		trogonobjectid.TypeOf[systemType](),
+		trogonobjectid.MemberOf[userType](),
+		trogonobjectid.MemberOf[systemType](),
 	}
 }
 

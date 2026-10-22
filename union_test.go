@@ -26,9 +26,9 @@ type principalUnion struct{}
 
 func (principalUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.TypeOf[userType](),
-		trogonobjectid.TypeOf[systemType](),
-		trogonobjectid.TypeOf[invoiceType](),
+		trogonobjectid.MemberOf[userType](),
+		trogonobjectid.MemberOf[systemType](),
+		trogonobjectid.MemberOf[invoiceType](),
 	}
 }
 
@@ -50,8 +50,8 @@ type overlapUnion struct{}
 
 func (overlapUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.TypeOf[acmeType](),
-		trogonobjectid.TypeOf[acmeAdminType](),
+		trogonobjectid.MemberOf[acmeType](),
+		trogonobjectid.MemberOf[acmeAdminType](),
 	}
 }
 
@@ -63,15 +63,15 @@ type duplicateUnion struct{}
 
 func (duplicateUnion) Types() []trogonobjectid.MemberType {
 	return []trogonobjectid.MemberType{
-		trogonobjectid.TypeOf[userType](),
-		trogonobjectid.TypeOf[userType](),
+		trogonobjectid.MemberOf[userType](),
+		trogonobjectid.MemberOf[userType](),
 	}
 }
 
 type badMemberUnion struct{}
 
 func (badMemberUnion) Types() []trogonobjectid.MemberType {
-	return []trogonobjectid.MemberType{trogonobjectid.TypeOf[badType]()}
+	return []trogonobjectid.MemberType{trogonobjectid.MemberOf[badType]()}
 }
 
 func TestNewUnion(t *testing.T) {

@@ -18,7 +18,7 @@ type Member interface {
 	IsZero() bool
 }
 
-// MemberType describes one ID type that a Union accepts. Make it with TypeOf.
+// MemberType describes one ID type that a Union accepts. Make it with MemberOf.
 type MemberType struct {
 	objectType ObjectType
 	prefixes   []Prefix
@@ -27,8 +27,8 @@ type MemberType struct {
 	holds      func(m Member) bool
 }
 
-// TypeOf returns the MemberType for ID[T].
-func TypeOf[T Definer]() MemberType {
+// MemberOf returns the MemberType for ID[T].
+func MemberOf[T Definer]() MemberType {
 	s, err := specFor[T]()
 	return MemberType{
 		objectType: s.ObjectType,
@@ -45,8 +45,8 @@ func TypeOf[T Definer]() MemberType {
 //
 //	func (principalUnion) Types() []trogonobjectid.MemberType {
 //		return []trogonobjectid.MemberType{
-//			trogonobjectid.TypeOf[userType](),
-//			trogonobjectid.TypeOf[systemType](),
+//			trogonobjectid.MemberOf[userType](),
+//			trogonobjectid.MemberOf[systemType](),
 //		}
 //	}
 //
