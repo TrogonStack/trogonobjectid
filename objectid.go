@@ -70,6 +70,9 @@ type Definition struct {
 	Validate func(id string) error
 	// Generate returns a new bare value for Generate. Nil makes Generate fail.
 	Generate func() (string, error)
+	// Aliases are earlier object types that parsing still accepts. Every encoder emits
+	// ObjectType, so stored and sent values move to the new prefix as they are rewritten.
+	Aliases []ObjectType
 }
 
 // Definer is implemented by the marker type that names an object ID type.
@@ -99,7 +102,8 @@ type ID[T Definer] struct {
 
 type spec struct {
 	Definition
-	prefix string
+	// prefixes holds the ObjectType's prefix first, then each alias's.
+	prefixes []Prefix
 	// objectTypes is the one-element list that every ValidationError carries.
 	objectTypes []ObjectType
 }
@@ -121,9 +125,21 @@ func newSpec[T Definer]() (spec, error) {
 	if def.Separator == "" {
 		def.Separator = DefaultSeparator
 	}
+	prefixes := []Prefix{Prefix(string(def.ObjectType) + string(def.Separator))}
+	seen := map[ObjectType]bool{def.ObjectType: true}
+	for _, alias := range def.Aliases {
+		if err := alias.validate(); err != nil {
+			return spec{}, fmt.Errorf("%w: %T alias: %w", ErrInvalidDefinition, marker, err)
+		}
+		if seen[alias] {
+			return spec{}, fmt.Errorf("%w: %T repeats object type %q in its aliases", ErrInvalidDefinition, marker, alias)
+		}
+		seen[alias] = true
+		prefixes = append(prefixes, Prefix(string(alias)+string(def.Separator)))
+	}
 	return spec{
 		Definition:  def,
-		prefix:      string(def.ObjectType) + string(def.Separator),
+		prefixes:    prefixes,
 		objectTypes: []ObjectType{def.ObjectType},
 	}, nil
 }
@@ -141,17 +157,18 @@ func (s *spec) check(id string) error {
 }
 
 func (s *spec) parse(full string) (string, error) {
-	bare, ok := strings.CutPrefix(full, s.prefix)
-	if !ok {
-		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: &WrongPrefixError{Want: []Prefix{Prefix(s.prefix)}}}
+	for _, p := range s.prefixes {
+		if bare, ok := strings.CutPrefix(full, string(p)); ok {
+			if bare == "" {
+				return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: ErrInvalidFormat}
+			}
+			if err := s.check(bare); err != nil {
+				return "", err
+			}
+			return bare, nil
+		}
 	}
-	if bare == "" {
-		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: ErrInvalidFormat}
-	}
-	if err := s.check(bare); err != nil {
-		return "", err
-	}
-	return bare, nil
+	return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: &WrongPrefixError{Want: s.prefixes}}
 }
 
 func (s *spec) decode(format Format, value string) (string, error) {
@@ -168,7 +185,7 @@ func (s *spec) encode(format Format, id string) string {
 	if format == FormatDropPrefix {
 		return id
 	}
-	return s.prefix + id
+	return string(s.prefixes[0]) + id
 }
 
 // New returns an ID for the bare value id, after validation.
@@ -283,7 +300,7 @@ func Check[T Definer]() error {
 
 // PrefixOf returns T's object type and separator, for example "user_". It panics if
 // T's Definition is invalid.
-func PrefixOf[T Definer]() Prefix { return Prefix(mustSpec[T]().prefix) }
+func PrefixOf[T Definer]() Prefix { return mustSpec[T]().prefixes[0] }
 
 // IsZero reports whether id is the zero (absent) ID.
 func (id ID[T]) IsZero() bool { return id.id == "" }
@@ -302,7 +319,7 @@ func (id ID[T]) String() string {
 	if id.IsZero() {
 		return ""
 	}
-	return mustSpec[T]().prefix + id.id
+	return string(mustSpec[T]().prefixes[0]) + id.id
 }
 
 // Storage returns the value in the type's StorageFormat, or "" for the zero ID.
