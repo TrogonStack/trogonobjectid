@@ -11,7 +11,7 @@
 //
 //	var ticketDefinition = objectidproto.MustDefinition(acmev1.ObjectType_OBJECT_TYPE_TICKET, trogonobjectid.Definition{
 //		StorageFormat: trogonobjectid.FormatDropPrefix,
-//		Normalize:     trogonobjectid.NormalizeUUID,
+//		Validate:      trogonobjectid.ValidateUUID,
 //	})
 //
 //	type ticketType struct{}
