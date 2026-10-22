@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/google/uuid"
+
 	"github.com/TrogonStack/trogonobjectid"
 )
 
@@ -49,5 +51,16 @@ func ExampleID_EncodeSpanner() {
 	fmt.Println(null == (*string)(nil))
 	// Output:
 	// 0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f
+	// true
+}
+
+func ExampleFromUUID() {
+	u := uuid.MustParse("0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f")
+	id, _ := trogonobjectid.FromUUID[invoiceType](u)
+	back, _ := id.UUID()
+	fmt.Println(id)
+	fmt.Println(back == u)
+	// Output:
+	// inv_0199e3a1-7c2b-7d4e-9f10-2a3b4c5d6e7f
 	// true
 }

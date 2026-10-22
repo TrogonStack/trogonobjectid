@@ -113,6 +113,10 @@ func TestIDDefinitions(t *testing.T) {
 
 A value with another type's prefix fails with a `*WrongPrefixError`, which names the prefix it got and the one it expected. It unwraps to `ErrInvalidFormat`.
 
+### Work with UUIDs
+
+`FromUUID[T](u)` builds an ID from a `uuid.UUID`, and `id.UUID()` returns the bare value as a `uuid.UUID`. `Scan` and `DecodeSpanner` also accept `uuid.UUID` and `[16]byte`, for drivers and columns that carry native UUIDs. These need `StorageFormat: FormatDropPrefix`, because a native UUID has no prefix.
+
 ## Emitted forms
 
 | Method | Emits | Controlled by |
