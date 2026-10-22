@@ -22,7 +22,7 @@ func (invoiceType) Definition() trogonobjectid.Definition {
 		ObjectType:    "inv",
 		StorageFormat: trogonobjectid.FormatDropPrefix,
 		JSONFormat:    trogonobjectid.FormatDropPrefix,
-		Validate:      trogonobjectid.ValidateUUID,
+		Normalize:     trogonobjectid.NormalizeUUID,
 		Generate:      trogonobjectid.GenerateUUIDv7,
 	}
 }
@@ -67,7 +67,7 @@ case SystemID:
 }
 ```
 
-A union always encodes the full form, in JSON and in storage too, because the prefix is the only thing that tells the member types apart. When prefixes overlap, such as `acme_` and `acme_admin_`, the longest prefix wins.
+A union always encodes the full form, in JSON, SQL and Spanner too, because the prefix is the only thing that tells the member types apart. When prefixes overlap, such as `acme_` and `acme_admin_`, the longest prefix wins.
 
 ### Read the prefix from a proto annotation
 
@@ -95,6 +95,7 @@ Keep the result in a package-level variable, because `Definition` methods run on
 | `Separator` | `"_"` | Goes between the object type and the bare value |
 | `StorageFormat` | `FormatFull` | Form for `Storage`, `FromStorage`, `Value` and `Scan` |
 | `JSONFormat` | `FormatFull` | Form for `MarshalJSON` and `UnmarshalJSON` |
+| `Normalize` | none | Rewrites the bare value to its canonical form before `Validate`. `NormalizeUUID` gives lowercase hyphenated UUIDs and also rejects non-UUIDs, so a type that sets it needs no `ValidateUUID`. The Elixir package has no counterpart and keeps UUIDs as given |
 | `Validate` | none | Checks the bare value; use `ValidateUUID`, `ValidateInteger` or your own function |
 | `Generate` | none | Makes a bare value for `Generate`; use `GenerateUUIDv7`, `GenerateUUIDv4` or your own function |
 
@@ -108,7 +109,10 @@ Keep the result in a package-level variable, because `Definition` methods run on
 | `MarshalJSON`, `UnmarshalJSON` | Full or bare | `JSONFormat` |
 | `Storage`, `FromStorage` | Full or bare | `StorageFormat` |
 | `Value`, `Scan` (`database/sql`) | Full or bare | `StorageFormat` |
+| `EncodeSpanner`, `DecodeSpanner` (Cloud Spanner) | Full or bare; unions always full | `StorageFormat` |
 
 `LogValue` exists because `slog.JSONHandler` otherwise calls `MarshalJSON`, which logs the bare value when `JSONFormat` is `FormatDropPrefix`. `MarshalText` always uses the full form because JSON map keys and flag values must parse back without other context.
 
-Decoders accept only the form that the matching encoder emits, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+Decoders accept only the form that the matching encoder emits, apart from what `Normalize` rewrites, so each encoding round trips. The zero ID means "absent": it encodes as SQL `NULL`, Spanner `NULL` and JSON `null`, and the JSON `omitzero` tag option skips it.
+
+The Spanner methods implement `spanner.Encoder` and `spanner.Decoder` by method set, so the package does not import the Spanner client.

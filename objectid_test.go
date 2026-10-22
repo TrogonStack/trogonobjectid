@@ -352,3 +352,95 @@ func TestZero(t *testing.T) {
 	assert.Empty(t, id.Storage())
 	assert.Equal(t, UserID{}, id)
 }
+
+// canonicalType's Validate accepts only the canonical form, so every decoder case
+// also proves that Normalize runs before Validate.
+type canonicalType struct{}
+
+func (canonicalType) Definition() trogonobjectid.Definition {
+	return trogonobjectid.Definition{
+		ObjectType:    "inv",
+		StorageFormat: trogonobjectid.FormatDropPrefix,
+		JSONFormat:    trogonobjectid.FormatDropPrefix,
+		Normalize:     trogonobjectid.NormalizeUUID,
+		Validate: func(id string) error {
+			if id != invoiceUUID {
+				return errors.New("not canonical")
+			}
+			return nil
+		},
+	}
+}
+
+const upperInvoiceUUID = "0199E3A1-7C2B-7D4E-9F10-2A3B4C5D6E7F"
+
+func TestNormalize(t *testing.T) {
+	want := trogonobjectid.MustNew[canonicalType](invoiceUUID)
+
+	decoders := map[string]func() (trogonobjectid.ID[canonicalType], error){
+		"New": func() (trogonobjectid.ID[canonicalType], error) {
+			return trogonobjectid.New[canonicalType](upperInvoiceUUID)
+		},
+		"URN": func() (trogonobjectid.ID[canonicalType], error) {
+			return trogonobjectid.New[canonicalType]("urn:uuid:" + invoiceUUID)
+		},
+		"Parse": func() (trogonobjectid.ID[canonicalType], error) {
+			return trogonobjectid.Parse[canonicalType]("inv_" + upperInvoiceUUID)
+		},
+		"Scan": func() (trogonobjectid.ID[canonicalType], error) {
+			var id trogonobjectid.ID[canonicalType]
+			return id, id.Scan(upperInvoiceUUID)
+		},
+		"JSON": func() (trogonobjectid.ID[canonicalType], error) {
+			var id trogonobjectid.ID[canonicalType]
+			return id, json.Unmarshal([]byte(`"`+upperInvoiceUUID+`"`), &id)
+		},
+	}
+	for name, decode := range decoders {
+		t.Run(name+" stores the canonical form", func(t *testing.T) {
+			got, err := decode()
+			require.NoError(t, err)
+			assert.Equal(t, want, got)
+		})
+	}
+
+	t.Run("rejects a value that is not a UUID", func(t *testing.T) {
+		_, err := trogonobjectid.New[canonicalType]("nope")
+		require.ErrorIs(t, err, trogonobjectid.ErrInvalidUUID)
+	})
+}
+
+func TestSpanner(t *testing.T) {
+	t.Run("encodes the full storage format", func(t *testing.T) {
+		got, err := trogonobjectid.MustNew[userType]("abc-123").EncodeSpanner()
+		require.NoError(t, err)
+		assert.Equal(t, "user_abc-123", got)
+	})
+
+	t.Run("decodes what it encodes", func(t *testing.T) {
+		want := trogonobjectid.MustNew[invoiceType](invoiceUUID)
+		encoded, err := want.EncodeSpanner()
+		require.NoError(t, err)
+		var got InvoiceID
+		require.NoError(t, got.DecodeSpanner(encoded))
+		assert.Equal(t, want, got)
+	})
+
+	t.Run("decodes NULL as the zero ID", func(t *testing.T) {
+		got := trogonobjectid.MustNew[invoiceType](invoiceUUID)
+		require.NoError(t, got.DecodeSpanner(nil))
+		assert.True(t, got.IsZero())
+	})
+
+	t.Run("rejects a value in the other format", func(t *testing.T) {
+		var got InvoiceID
+		require.ErrorIs(t, got.DecodeSpanner("inv_"+invoiceUUID), trogonobjectid.ErrInvalidUUID)
+	})
+}
+
+func BenchmarkNormalizeUUID(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		_, _ = trogonobjectid.NormalizeUUID(invoiceUUID)
+	}
+}
