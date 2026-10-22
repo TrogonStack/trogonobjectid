@@ -18,6 +18,9 @@ type ObjectType string
 // Separator goes between the object type and the bare value.
 type Separator string
 
+// Prefix is an object type followed by its separator, for example "user_".
+type Prefix string
+
 // DefaultSeparator is the separator used when Definition.Separator is empty.
 const DefaultSeparator Separator = "_"
 
@@ -98,6 +101,8 @@ type ID[T Definer] struct {
 type spec struct {
 	Definition
 	prefix string
+	// objectTypes is the one-element list that every ValidationError carries.
+	objectTypes []ObjectType
 }
 
 // specs caches each marker type's spec, keyed by reflect.Type, so encoding an ID does
@@ -117,23 +122,27 @@ func newSpec[T Definer]() (spec, error) {
 	if def.Separator == "" {
 		def.Separator = DefaultSeparator
 	}
-	return spec{Definition: def, prefix: string(def.ObjectType) + string(def.Separator)}, nil
+	return spec{
+		Definition:  def,
+		prefix:      string(def.ObjectType) + string(def.Separator),
+		objectTypes: []ObjectType{def.ObjectType},
+	}, nil
 }
 
 func (s *spec) build(id string) (string, error) {
 	if id == "" {
-		return "", &ValidationError{ObjectType: string(s.ObjectType), Value: id, Err: ErrEmptyValue}
+		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: ErrEmptyValue}
 	}
 	if s.Normalize != nil {
 		normalized, err := s.Normalize(id)
 		if err != nil {
-			return "", &ValidationError{ObjectType: string(s.ObjectType), Value: id, Err: err}
+			return "", &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: err}
 		}
 		id = normalized
 	}
 	if s.Validate != nil {
 		if err := s.Validate(id); err != nil {
-			return "", &ValidationError{ObjectType: string(s.ObjectType), Value: id, Err: err}
+			return "", &ValidationError{ObjectTypes: s.objectTypes, Value: id, Err: err}
 		}
 	}
 	return id, nil
@@ -142,10 +151,10 @@ func (s *spec) build(id string) (string, error) {
 func (s *spec) parse(full string) (string, error) {
 	bare, ok := strings.CutPrefix(full, s.prefix)
 	if !ok {
-		return "", &ValidationError{ObjectType: string(s.ObjectType), Value: full, Err: &WrongPrefixError{Want: []string{s.prefix}}}
+		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: &WrongPrefixError{Want: []Prefix{Prefix(s.prefix)}}}
 	}
 	if bare == "" {
-		return "", &ValidationError{ObjectType: string(s.ObjectType), Value: full, Err: ErrInvalidFormat}
+		return "", &ValidationError{ObjectTypes: s.objectTypes, Value: full, Err: ErrInvalidFormat}
 	}
 	return s.build(bare)
 }
@@ -278,7 +287,7 @@ func Check[T Definer]() error {
 
 // PrefixOf returns T's object type and separator, for example "user_". It panics if
 // T's Definition is invalid.
-func PrefixOf[T Definer]() string { return mustSpec[T]().prefix }
+func PrefixOf[T Definer]() Prefix { return Prefix(mustSpec[T]().prefix) }
 
 // IsZero reports whether id is the zero (absent) ID.
 func (id ID[T]) IsZero() bool { return id.id == "" }
@@ -290,7 +299,7 @@ func (id ID[T]) Bare() string { return id.id }
 func (id ID[T]) ObjectType() ObjectType { return ObjectTypeOf[T]() }
 
 // Prefix returns the object type and separator, for example "user_".
-func (id ID[T]) Prefix() string { return PrefixOf[T]() }
+func (id ID[T]) Prefix() Prefix { return PrefixOf[T]() }
 
 // String returns the prefixed form, for example "user_abc-123", or "" for the zero ID.
 func (id ID[T]) String() string {

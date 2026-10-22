@@ -45,7 +45,7 @@ func TestWrongPrefix(t *testing.T) {
 			_, err := trogonobjectid.Parse[invoiceType](input)
 			var wrong *trogonobjectid.WrongPrefixError
 			require.True(t, errors.As(err, &wrong))
-			assert.Equal(t, []string{"inv_"}, wrong.Want)
+			assert.Equal(t, []trogonobjectid.Prefix{"inv_"}, wrong.Want)
 			require.ErrorIs(t, err, trogonobjectid.ErrInvalidFormat)
 		})
 	}
@@ -54,6 +54,6 @@ func TestWrongPrefix(t *testing.T) {
 		_, err := trogonobjectid.ParseUnion[principalUnion]("order_abc")
 		var wrong *trogonobjectid.WrongPrefixError
 		require.True(t, errors.As(err, &wrong))
-		assert.ElementsMatch(t, []string{"user_", "system_", "inv_"}, wrong.Want)
+		assert.ElementsMatch(t, []trogonobjectid.Prefix{"user_", "system_", "inv_"}, wrong.Want)
 	})
 }

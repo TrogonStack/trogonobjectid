@@ -109,7 +109,9 @@ func TestIDDefinitions(t *testing.T) {
 }
 ```
 
-A value without one of the type's prefixes fails with a `*WrongPrefixError`, which lists the prefixes the type accepts. It unwraps to `ErrInvalidFormat`, and `ValidationError.Value` holds the input.
+A value without one of the type's prefixes fails with a `*WrongPrefixError`, which lists the prefixes the type accepts. It unwraps to `ErrInvalidFormat`. Every parse error is a `*ValidationError` with the `ObjectTypes` it was checked against (every member's for a union) and the input `Value`.
+
+`ObjectType`, `Separator` and `Prefix` are named string types, so an object type, a separator and a prefix cannot be swapped by mistake. `Bare()` and the parse inputs stay `string`, because they are the wire and storage boundary.
 
 ## Emitted forms
 
