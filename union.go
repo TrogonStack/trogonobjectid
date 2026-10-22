@@ -69,22 +69,10 @@ type unionSpec struct {
 	members []MemberType
 }
 
-type cachedUnionSpec struct {
-	spec unionSpec
-	err  error
-}
-
 var unionSpecs sync.Map
 
-func unionSpecFor[U UnionDefiner]() (unionSpec, error) {
-	key := reflect.TypeFor[U]()
-	if cached, ok := unionSpecs.Load(key); ok {
-		c := cached.(cachedUnionSpec)
-		return c.spec, c.err
-	}
-	s, err := newUnionSpec[U]()
-	unionSpecs.Store(key, cachedUnionSpec{spec: s, err: err})
-	return s, err
+func unionSpecFor[U UnionDefiner]() (*unionSpec, error) {
+	return loadOrBuild(&unionSpecs, reflect.TypeFor[U](), newUnionSpec[U])
 }
 
 func newUnionSpec[U UnionDefiner]() (unionSpec, error) {
@@ -257,3 +245,15 @@ func (u *Union[U]) set(str string) error {
 	*u = v
 	return nil
 }
+
+// EncodeSpanner implements spanner.Encoder with the full form. The zero union is a NULL
+// STRING, the same as the zero ID.
+func (u Union[U]) EncodeSpanner() (any, error) {
+	if u.IsZero() {
+		return (*string)(nil), nil
+	}
+	return u.String(), nil
+}
+
+// DecodeSpanner implements spanner.Decoder for STRING values in the full form.
+func (u *Union[U]) DecodeSpanner(val any) error { return u.Scan(val) }
